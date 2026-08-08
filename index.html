@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Automatic Circular Management</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <div class="phone-shell">
+      <div class="screen" id="startScreen">
+        <div class="hero-block">
+          <div class="hero-title">Automatic Circular Management</div>
+          <div class="hero-subtitle">Faculty and Student mobile screens in a college circular system.</div>
+        </div>
+        <div class="choice-card">
+          <button class="primary-btn" onclick="showPage('facultyScreen')">Faculty Screen</button>
+          <button class="secondary-btn" onclick="showPage('studentScreen')">Student Screen</button>
+        </div>
+        <div class="feature-grid">
+          <div class="feature-item">📢 Smart circular routing</div>
+          <div class="feature-item">👥 Year, sports, faculty groups</div>
+          <div class="feature-item">🔔 Notifications & top ordering</div>
+          <div class="feature-item">🎨 Attractive mobile-style UI</div>
+        </div>
+      </div>
+
+      <div class="screen hidden" id="facultyScreen">
+        <header class="app-header">
+          <div>
+            <div class="title">Faculty Portal</div>
+            <div class="subtitle">Send college circulars and route them automatically.</div>
+          </div>
+          <button class="small-btn" onclick="showPage('startScreen')">Home</button>
+        </header>
+
+        <section class="content-card">
+          <div class="section-title">Create Circular</div>
+          <textarea id="facultyMessage" rows="6" placeholder="Type your circular here. Mention first year, second year, sports, faculty, whole college, event dates, etc."></textarea>
+          <button class="primary-btn full-width" onclick="sendCircular()">Send Circular</button>
+          <div id="analysisResult" class="analysis-result"></div>
+        </section>
+
+        <section class="content-card">
+          <div class="section-title">Faculty Groups</div>
+          <div class="group-row" id="facultyGroupChips"></div>
+          <div class="add-group-row">
+            <input id="newGroupName" placeholder="Add new group name" />
+            <button class="secondary-btn" onclick="addGroup()">+</button>
+          </div>
+        </section>
+
+        <section class="content-card info-card" id="eventReminderCard">
+          <div class="section-title">Schedule Reminder</div>
+          <div id="eventReminder">No date detected yet. Mention a date like 20/09 or 15 August to create a reminder.</div>
+        </section>
+
+        <nav class="bottom-nav">
+          <button class="nav-btn active"><span>💬</span>Message</button>
+          <button class="nav-btn"><span>👥</span>Groups</button>
+          <button class="nav-btn"><span>⚙️</span>Settings</button>
+        </nav>
+
+        <button class="back-btn" onclick="goBack()">← Back</button>
+      </div>
+
+      <div class="screen hidden" id="studentScreen">
+        <header class="app-header">
+          <div>
+            <div class="title">Student View</div>
+            <div class="subtitle">Login and view circulars assigned to your groups.</div>
+          </div>
+          <button class="small-btn" onclick="showPage('startScreen')">Home</button>
+        </header>
+
+        <section class="content-card" id="studentLoginCard">
+          <div class="section-title">Student Login</div>
+          <input id="studentName" placeholder="Student name" />
+          <input id="studentEmail" placeholder="Student email" />
+          <button class="primary-btn full-width" onclick="loginStudent()">Login</button>
+          <div class="hint-text">Example: name and email are for reference only.</div>
+        </section>
+
+        <section class="content-card hidden" id="studentGroupsCard">
+          <div class="section-title">Your Groups</div>
+          <div id="studentStatus" class="info-text"></div>
+          <div id="studentGroupList" class="group-list"></div>
+        </section>
+
+        <section class="content-card hidden" id="studentMessagesCard">
+          <div class="section-title">Group Messages</div>
+          <div id="studentChatList"></div>
+        </section>
+
+        <button class="back-btn" onclick="goBack()">← Back</button>
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
