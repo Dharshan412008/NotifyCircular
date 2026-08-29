@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CampusRelay">
+  <defs>
+    <linearGradient id="bg" x1="72" y1="56" x2="444" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102744"/>
+      <stop offset="1" stop-color="#07111f"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="132" y1="108" x2="380" y2="406" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#80f3d0"/>
+      <stop offset="1" stop-color="#55a7ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="118" fill="url(#bg)"/>
+  <path d="M153 105h206a42 42 0 0 1 42 42v238a42 42 0 0 1-42 42H153a42 42 0 0 1-42-42V147a42 42 0 0 1 42-42Z" fill="#0e1d32" stroke="#ffffff" stroke-opacity=".1" stroke-width="8"/>
+  <path d="M168 167h176M168 230h176M168 293h108" fill="none" stroke="url(#mark)" stroke-width="27" stroke-linecap="round"/>
+  <path d="M77 215h34M401 215h34" fill="none" stroke="#63e6be" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="345" cy="347" r="57" fill="url(#mark)"/>
+  <path d="m319 347 18 18 36-41" fill="none" stroke="#07111f" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

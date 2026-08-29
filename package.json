@@ -1,0 +1,28 @@
+{
+  "name": "notify-circular",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-user college circular routing, notification, and accountability demo",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.2.0",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "nodemailer": "^9.0.6",
+    "socket.io": "^4.8.1",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.4"
+  }
+}
