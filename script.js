@@ -229,6 +229,109 @@
     }, 3800);
   }
 
+  function playRoutingMoment({
+    targetNames = [],
+    audienceCount,
+    pushCount,
+    emailFallbackCount,
+  } = {}) {
+    const device = $('.device');
+    if (!device) return Promise.resolve();
+
+    const names = Array.isArray(targetNames)
+      ? targetNames.map((name) => String(name || '').trim()).filter(Boolean)
+      : [];
+    const reducedMotion = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    const duration = reducedMotion ? 460 : 1100;
+    const audience = Number(audienceCount);
+    const pushed = Number(pushCount);
+    const emailed = Number(emailFallbackCount);
+    const hasAudienceCount = Number.isFinite(audience) && audience >= 0;
+    const hasPushCount = Number.isFinite(pushed) && pushed >= 0;
+    const hasEmailCount = Number.isFinite(emailed) && emailed >= 0;
+
+    $('.routing-moment', device)?.remove();
+    const overlay = createElement('div', {
+      className: `routing-moment${reducedMotion ? ' is-reduced-motion' : ''}`,
+      attrs: {
+        role: 'status',
+        'aria-live': 'polite',
+        'aria-atomic': 'true',
+        'aria-label': hasAudienceCount
+          ? `Circular routed successfully to ${audience} recipient${audience === 1 ? '' : 's'}.`
+          : 'Circular routed successfully.',
+      },
+    });
+    overlay.style.pointerEvents = 'none';
+
+    const visibleNames = names.slice(0, 3);
+    const targetTray = createElement('div', {
+      className: 'routing-moment-targets',
+      attrs: { 'aria-hidden': 'true' },
+    }, visibleNames.map((name) => createElement('span', {
+      className: 'routing-moment-target',
+      text: name,
+    })));
+    if (names.length > visibleNames.length) {
+      targetTray.append(createElement('span', {
+        className: 'routing-moment-target routing-moment-target-more',
+        text: `+${names.length - visibleNames.length}`,
+      }));
+    }
+    if (!visibleNames.length) {
+      targetTray.append(createElement('span', {
+        className: 'routing-moment-target',
+        text: 'Selected audience',
+      }));
+    }
+
+    const route = createElement('div', {
+      className: 'routing-moment-route',
+      attrs: { 'aria-hidden': 'true' },
+    }, [
+      createElement('span', { className: 'routing-moment-notice' }, [
+        icon('i-compose'),
+        createElement('span', { text: 'Circular' }),
+      ]),
+      createElement('span', { className: 'routing-moment-relay' },
+        reducedMotion ? null : createElement('span', { className: 'routing-moment-pulse' })),
+      targetTray,
+    ]);
+
+    const receiptLines = [];
+    if (hasPushCount) receiptLines.push(`${pushed} push`);
+    if (hasEmailCount) receiptLines.push(`${emailed} email fallback`);
+    const receipt = createElement('div', { className: 'routing-moment-receipt' }, [
+      createElement('span', { className: 'routing-moment-check', attrs: { 'aria-hidden': 'true' } }, icon('i-check')),
+      createElement('span', { className: 'routing-moment-receipt-copy' }, [
+        createElement('strong', {
+          text: hasAudienceCount
+            ? `Delivered to ${audience} recipient${audience === 1 ? '' : 's'}`
+            : 'Circular delivered',
+        }),
+        receiptLines.length
+          ? createElement('small', { text: receiptLines.join(' · ') })
+          : createElement('small', { text: names.length ? names.join(' · ') : 'Delivery recorded' }),
+      ]),
+    ]);
+
+    overlay.append(createElement('div', { className: 'routing-moment-card' }, [route, receipt]));
+    device.append(overlay);
+    requestAnimationFrame(() => overlay.classList.add('is-visible'));
+
+    return new Promise((resolve) => {
+      window.setTimeout(() => {
+        overlay.classList.add('is-leaving');
+        window.setTimeout(() => {
+          overlay.remove();
+          resolve();
+        }, reducedMotion ? 20 : 150);
+      }, Math.max(0, duration - (reducedMotion ? 20 : 150)));
+    });
+  }
+
+  window.playRoutingMoment = playRoutingMoment;
+
   function emptyState(title, copy, iconSymbol = 'i-inbox') {
     return createElement('div', { className: 'empty-state' }, [
       createElement('span', { className: 'empty-icon' }, icon(iconSymbol)),
@@ -1285,15 +1388,37 @@
 
   async function sendCircular() {
     const button = $('#confirmSendButton');
+    const payload = draftPayload();
+    const targetNames = payload.targetGroupIds
+      .map(groupById)
+      .filter(Boolean)
+      .map((group) => group.name);
     setBusy(button, true);
+    let circular;
+    let delivery;
     try {
-      const { circular, delivery } = await api('/api/circulars', {
-        method: 'POST',
-        body: draftPayload(),
-      });
+      try {
+        ({ circular, delivery } = await api('/api/circulars', {
+          method: 'POST',
+          body: payload,
+        }));
+      } catch (error) {
+        toast(errorMessage(error, 'Could not send the circular.'), 'error');
+        return;
+      }
       closeDialog($('#reviewDialog'));
+      await playRoutingMoment({
+        targetNames,
+        audienceCount: delivery?.audienceCount,
+        pushCount: delivery?.pushCount,
+        emailFallbackCount: delivery?.emailFallbackCount,
+      });
       clearComposer();
-      await loadSentCirculars();
+      try {
+        await loadSentCirculars();
+      } catch (error) {
+        toast(`Circular sent, but the sent list could not refresh: ${errorMessage(error)}`, 'info');
+      }
       setFacultyView('sent', { load: false });
       const audienceCount = Number(delivery?.audienceCount);
       toast(
@@ -1302,8 +1427,6 @@
           : `${circular?.summary || 'Circular'} sent.`,
         'success',
       );
-    } catch (error) {
-      toast(errorMessage(error, 'Could not send the circular.'), 'error');
     } finally {
       setBusy(button, false);
     }

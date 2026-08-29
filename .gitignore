@@ -8,3 +8,6 @@ coverage/
 test/.tmp/
 .DS_Store
 Thumbs.db
+.chrome-smoke/
+.edge-smoke/
+.visual-check/

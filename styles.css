@@ -9,7 +9,7 @@
   --text: #f6f8fc;
   --text-soft: #d5deeb;
   --muted: #91a1b8;
-  --faint: #697a92;
+  --faint: #8192a9;
   --line: rgba(255, 255, 255, 0.085);
   --line-strong: rgba(255, 255, 255, 0.14);
   --mint: #63e6be;
@@ -25,6 +25,9 @@
   --success: #34d399;
   --danger: #ff6b7f;
   --shadow: 0 35px 100px rgba(0, 0, 0, 0.48);
+  --font-display: "Segoe UI Variable Display", "Aptos Display", "Arial Rounded MT Bold", ui-sans-serif, sans-serif;
+  --font-body: "Segoe UI Variable Text", Aptos, Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-utility: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --radius-sm: 12px;
   --radius: 18px;
   --radius-lg: 24px;
@@ -43,19 +46,21 @@ html[data-theme="light"] {
   --text: #0b1827;
   --text-soft: #26384d;
   --muted: #607188;
-  --faint: #8291a4;
+  --faint: #64758a;
   --line: rgba(11, 24, 39, 0.09);
   --line-strong: rgba(11, 24, 39, 0.15);
-  --mint: #0dbb8a;
-  --mint-bright: #18c998;
-  --mint-ink: #ffffff;
+  --mint: #087c61;
+  --mint-bright: #23cfa0;
+  --mint-ink: #041c17;
   --mint-soft: rgba(13, 187, 138, 0.11);
-  --azure: #247bd1;
+  --azure: #1e6db8;
   --azure-soft: rgba(36, 123, 209, 0.1);
-  --urgent: #db405b;
+  --urgent: #c92e49;
   --urgent-soft: rgba(219, 64, 91, 0.1);
-  --warning: #c68100;
+  --warning: #8a5b00;
   --warning-soft: rgba(198, 129, 0, 0.1);
+  --success: #0b7a59;
+  --danger: #bd2943;
   --shadow: 0 32px 80px rgba(26, 48, 66, 0.2);
 }
 
@@ -78,7 +83,7 @@ body {
   background:
     radial-gradient(circle at 50% -20%, rgba(52, 121, 187, 0.32), transparent 44%),
     linear-gradient(145deg, var(--canvas-mid), var(--canvas));
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -328,6 +333,7 @@ svg {
   font-size: 0.71rem;
   font-weight: 750;
   letter-spacing: 0.02em;
+  font-family: var(--font-utility);
 }
 
 .eyebrow {
@@ -351,6 +357,8 @@ svg {
   font-size: clamp(2.3rem, 9vw, 3rem);
   line-height: 0.99;
   letter-spacing: -0.058em;
+  font-family: var(--font-display);
+  font-variation-settings: "wght" 720, "opsz" 48;
 }
 
 .hero h1 span {
@@ -440,6 +448,8 @@ svg {
 
 .role-copy strong {
   font-size: 0.94rem;
+  font-family: var(--font-display);
+  font-variation-settings: "wght" 660, "opsz" 18;
 }
 
 .role-copy small,
@@ -476,6 +486,7 @@ svg {
 
 .landing-metrics strong {
   font-size: 0.7rem;
+  font-family: var(--font-display);
 }
 
 .landing-metrics span,
@@ -511,6 +522,8 @@ svg {
   margin: 15px 0 7px;
   font-size: 1.85rem;
   letter-spacing: -0.045em;
+  font-family: var(--font-display);
+  font-variation-settings: "wght" 700, "opsz" 32;
 }
 
 .auth-heading p,
@@ -794,12 +807,15 @@ textarea {
   font-weight: 780;
   letter-spacing: 0.115em;
   text-transform: uppercase;
+  font-family: var(--font-utility);
 }
 
 .app-topbar h2 {
   margin: 0;
   font-size: 1.27rem;
   letter-spacing: -0.035em;
+  font-family: var(--font-display);
+  font-variation-settings: "wght" 680, "opsz" 24;
 }
 
 .avatar-button {
@@ -884,6 +900,8 @@ textarea {
   margin: 0;
   font-size: 1.3rem;
   letter-spacing: -0.035em;
+  font-family: var(--font-display);
+  font-variation-settings: "wght" 680, "opsz" 24;
 }
 
 .draft-status,
@@ -1417,6 +1435,7 @@ button.circular-card:hover {
 .card-time {
   color: var(--faint);
   font-size: 0.62rem;
+  font-family: var(--font-utility);
 }
 
 .circular-card h4 {
@@ -1441,6 +1460,7 @@ button.circular-card:hover {
   padding: 4px 7px;
   color: var(--muted);
   background: var(--surface-2);
+  font-family: var(--font-utility);
 }
 
 .card-footer {
@@ -1555,6 +1575,68 @@ button.circular-card:hover {
   background: var(--surface-2);
   font-size: 0.58rem;
   text-transform: capitalize;
+}
+
+.group-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ack-state,
+.unread-label {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-family: var(--font-utility);
+  font-size: 0.58rem;
+  font-weight: 760;
+}
+
+.ack-state.complete {
+  color: var(--success);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.ack-state.required {
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
+.unread-label {
+  color: var(--azure);
+  background: var(--azure-soft);
+}
+
+.notification-button.enabled {
+  color: var(--success);
+  background: rgba(52, 211, 153, 0.1);
+}
+
+.is-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.is-loading::after {
+  content: "";
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: control-spin 650ms linear infinite;
+}
+
+@keyframes control-spin {
+  to { transform: rotate(360deg); }
+}
+
+.circular-card.has-pending {
+  border-left-color: color-mix(in srgb, var(--warning) 55%, var(--line));
 }
 
 .member-count {
@@ -2212,6 +2294,261 @@ button.circular-card:hover {
   border: 0;
   color: var(--faint);
   background: transparent;
+}
+
+.toast-error .toast-icon {
+  color: var(--urgent);
+  background: var(--urgent-soft);
+}
+
+.toast-info .toast-icon {
+  color: var(--azure);
+  background: var(--azure-soft);
+}
+
+/*
+ * The product's signature beat: one circular visibly relays into its resolved
+ * audiences, followed by a factual delivery receipt. This is deliberately
+ * tied to real POST /api/circulars response data rather than decorative copy.
+ */
+.routing-moment {
+  position: absolute;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  padding: 24px;
+  place-items: center;
+  opacity: 0;
+  background: color-mix(in srgb, var(--canvas) 68%, transparent);
+  backdrop-filter: blur(0);
+  transition: opacity 150ms ease, backdrop-filter 280ms ease;
+}
+
+.routing-moment.is-visible {
+  opacity: 1;
+  backdrop-filter: blur(10px);
+}
+
+.routing-moment.is-leaving {
+  opacity: 0;
+  transition-duration: 180ms;
+}
+
+.routing-moment-card {
+  width: min(344px, 100%);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--mint) 30%, var(--line));
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 14% 10%, var(--mint-soft), transparent 38%),
+    var(--surface);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  transform: translateY(12px) scale(0.97);
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.routing-moment.is-visible .routing-moment-card {
+  transform: translateY(0) scale(1);
+}
+
+.routing-moment-route {
+  display: grid;
+  grid-template-columns: 72px minmax(42px, 1fr) minmax(105px, 1.35fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 132px;
+  padding: 20px 17px 17px;
+}
+
+.routing-moment-notice {
+  display: grid;
+  width: 72px;
+  height: 78px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  border: 1px solid rgba(99, 230, 190, 0.26);
+  border-radius: 16px;
+  color: var(--mint);
+  background: var(--mint-soft);
+  box-shadow: 0 12px 28px rgba(15, 30, 51, 0.2);
+  font-family: var(--font-utility);
+  font-size: 0.58rem;
+  font-weight: 760;
+  transform: translateX(-10px) rotate(-3deg);
+  opacity: 0;
+}
+
+.routing-moment-notice svg {
+  width: 24px;
+  height: 24px;
+}
+
+.routing-moment.is-visible .routing-moment-notice {
+  animation: notice-relay-in 430ms 90ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes notice-relay-in {
+  70% { transform: translateX(2px) rotate(1deg); }
+  to { transform: translateX(0) rotate(0); opacity: 1; }
+}
+
+.routing-moment-relay {
+  position: relative;
+  display: block;
+  height: 2px;
+  overflow: visible;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--mint), var(--azure));
+  opacity: 0.48;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.routing-moment.is-visible .routing-moment-relay {
+  animation: relay-line 370ms 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes relay-line {
+  to { transform: scaleX(1); opacity: 0.84; }
+}
+
+.routing-moment-pulse {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--mint-bright);
+  box-shadow: 0 0 0 5px var(--mint-soft), 0 0 17px var(--mint);
+  transform: translate(-50%, -50%);
+}
+
+.routing-moment.is-visible .routing-moment-pulse {
+  animation: relay-pulse 480ms 360ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes relay-pulse {
+  0% { left: 0; }
+  75%, 100% { left: 100%; }
+  100% { opacity: 0; }
+}
+
+.routing-moment-targets {
+  display: grid;
+  gap: 6px;
+}
+
+.routing-moment-target {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text-soft);
+  background: var(--surface-2);
+  font-family: var(--font-utility);
+  font-size: 0.58rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(9px);
+}
+
+.routing-moment-target::before {
+  content: "✓";
+  margin-right: 6px;
+  color: var(--success);
+}
+
+.routing-moment-target-more::before {
+  content: "+";
+  color: var(--azure);
+}
+
+.routing-moment.is-visible .routing-moment-target {
+  animation: route-target-in 270ms 570ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.routing-moment.is-visible .routing-moment-target:nth-child(2) {
+  animation-delay: 630ms;
+}
+
+.routing-moment.is-visible .routing-moment-target:nth-child(3) {
+  animation-delay: 690ms;
+}
+
+.routing-moment.is-visible .routing-moment-target:nth-child(4) {
+  animation-delay: 750ms;
+}
+
+@keyframes route-target-in {
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.routing-moment-receipt {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 11px;
+  align-items: center;
+  min-height: 72px;
+  padding: 13px 17px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--mint-soft) 72%, var(--surface));
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.routing-moment.is-visible .routing-moment-receipt {
+  animation: receipt-rise 280ms 770ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes receipt-rise {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.routing-moment-check {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--mint-ink);
+  background: var(--mint-bright);
+}
+
+.routing-moment-receipt-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.routing-moment-receipt-copy strong {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-variation-settings: "wght" 680, "opsz" 16;
+}
+
+.routing-moment-receipt-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--font-utility);
+  font-size: 0.57rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.routing-moment.is-reduced-motion .routing-moment-card,
+.routing-moment.is-reduced-motion .routing-moment-notice,
+.routing-moment.is-reduced-motion .routing-moment-relay,
+.routing-moment.is-reduced-motion .routing-moment-target,
+.routing-moment.is-reduced-motion .routing-moment-receipt {
+  animation: none;
+  transform: none;
+  opacity: 1;
 }
 
 @media (max-height: 760px) and (min-width: 601px) {
