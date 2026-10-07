@@ -1,0 +1,31 @@
+import { expect, test } from '@playwright/test';
+
+test('opens the dashboards, studio, profile, and administration', async ({ page }, testInfo) => {
+  await page.goto('/faculty/workbench');
+  await page.getByRole('button', { name: /meera shah/i }).click();
+  await expect(page.getByRole('heading', { name: 'Circular studio', exact: true })).toBeVisible();
+  await page.getByLabel('Circular title').fill(`Studio draft ${testInfo.project.name}`);
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await expect(page.getByText('Draft saved. You can safely return to it later.')).toBeVisible();
+  await page.goto('/faculty/overview');
+  await expect(page.getByText('Communication at a glance')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('aurora-dashboard.png'), fullPage: true });
+  await page.goto('/faculty/analytics');
+  await expect(page.getByRole('heading', { name: 'Circular analytics', exact: true })).toBeVisible();
+  await expect(page.getByRole('table')).toBeVisible();
+  await page.getByLabel('Reporting period').selectOption('7');
+  await expect(page.getByRole('img', { name: /circulars sent during the last 7 days/ })).toBeVisible();
+  await expect(page.getByText('Unique recipients', { exact: true })).toBeVisible();
+  const report = page.locator('.analytics-page');
+  expect(await report.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('aurora-analytics.png'), fullPage: true });
+  await page.goto('/faculty/settings');
+  await page.getByLabel('Department', { exact: true }).fill('Computer Science');
+  await page.getByRole('button', { name: 'Save profile', exact: true }).click();
+  await expect(page.getByText('Profile saved.', { exact: true })).toBeVisible();
+  await page.request.post('/api/auth/logout');
+  await page.goto('/admin');
+  await page.getByRole('button', { name: /college administrator/i }).click();
+  await expect(page.getByRole('heading', { name: 'Your campus, at a glance', exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('aurora-admin.png'), fullPage: true });
+});

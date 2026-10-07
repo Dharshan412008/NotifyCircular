@@ -4,10 +4,11 @@ const { ApiError } = require('./errors');
 const { serializeUser } = require('./repository');
 
 function attachCurrentUser(db) {
-  const getUser = db.prepare('SELECT id, name, email, role, year FROM users WHERE id = ?');
+  const getUser = db.prepare('SELECT id, name, email, role, year, disabled FROM users WHERE id = ?');
   return function currentUserMiddleware(req, _res, next) {
     try {
-      req.user = req.session?.userId ? serializeUser(getUser.get(req.session.userId)) : null;
+      const row = req.session?.userId ? getUser.get(req.session.userId) : null;
+      req.user = row && !row.disabled ? serializeUser(row) : null;
       if (!req.user && req.session?.userId) delete req.session.userId;
       next();
     } catch (error) {

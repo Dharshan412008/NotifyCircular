@@ -1,0 +1,38 @@
+{
+  "id": "/",
+  "name": "CampusRelay",
+  "short_name": "CampusRelay",
+  "description": "Official circulars, events, and campus life in one connected college workspace.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0D1020",
+  "theme_color": "#5B4BFF",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Faculty portal",
+      "short_name": "Faculty",
+      "url": "/faculty"
+    },
+    {
+      "name": "Student inbox",
+      "short_name": "Inbox",
+      "url": "/student"
+    }
+  ]
+}

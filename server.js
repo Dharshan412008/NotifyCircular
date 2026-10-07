@@ -26,7 +26,7 @@ function createServer(options = {}) {
       return next(error);
     }
     const user = context.db
-      .prepare('SELECT id, name, email, role, year FROM users WHERE id = ?')
+      .prepare('SELECT id, name, email, role, year FROM users WHERE id = ? AND disabled = 0')
       .get(userId);
     if (!user) return next(new Error('Authentication required'));
     socket.data.user = user;
@@ -35,6 +35,7 @@ function createServer(options = {}) {
 
   io.on('connection', (socket) => {
     socket.join(`user:${socket.data.user.id}`);
+    socket.join('campus');
     socket.emit('session:ready', { userId: Number(socket.data.user.id) });
   });
 
@@ -50,6 +51,8 @@ function createServer(options = {}) {
   context.app.locals.disconnectUserSockets = (userId) => {
     io.in(`user:${userId}`).disconnectSockets(true);
   };
+  context.app.locals.publishCampus = () => io.to('campus').emit('campus:changed');
+  context.app.locals.publishNotification = (userId) => io.to(`user:${userId}`).emit('notification:changed');
 
   let closing = false;
   async function close() {

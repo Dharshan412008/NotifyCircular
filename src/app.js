@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
+const net = require('node:net');
 const path = require('node:path');
 const express = require('express');
 const session = require('express-session');
@@ -31,12 +32,14 @@ const {
   getMembershipGroups,
   hydrateCircular,
   listFacultyCirculars,
+  listFacultyInbox,
   listGroups,
   listStudentInbox,
   markCircular,
   serializeGroup,
   serializeUser,
   studentCanAccessCircular,
+  userCanReceiveCircular,
 } = require('./repository');
 const { circularToIcs, circularToText } = require('./exports');
 const { analyzeText } = require('./classifier');
@@ -51,6 +54,53 @@ function destroySession(req) {
   return new Promise((resolve, reject) => {
     req.session.destroy((error) => (error ? reject(error) : resolve()));
   });
+}
+
+function normalizeRequestPath(requestPath) {
+  try {
+    return path.posix.normalize(decodeURIComponent(requestPath).replaceAll('\\', '/'));
+  } catch {
+    return null;
+  }
+}
+
+const blockedPushAddresses = new net.BlockList();
+for (const [address, prefix, family] of [
+  ['0.0.0.0', 8, 'ipv4'],
+  ['10.0.0.0', 8, 'ipv4'],
+  ['100.64.0.0', 10, 'ipv4'],
+  ['127.0.0.0', 8, 'ipv4'],
+  ['169.254.0.0', 16, 'ipv4'],
+  ['172.16.0.0', 12, 'ipv4'],
+  ['192.168.0.0', 16, 'ipv4'],
+  ['224.0.0.0', 4, 'ipv4'],
+  ['240.0.0.0', 4, 'ipv4'],
+  ['::', 128, 'ipv6'],
+  ['::1', 128, 'ipv6'],
+  ['::ffff:0:0', 96, 'ipv6'],
+  ['fc00::', 7, 'ipv6'],
+  ['fe80::', 10, 'ipv6'],
+  ['ff00::', 8, 'ipv6'],
+]) {
+  blockedPushAddresses.addSubnet(address, prefix, family);
+}
+
+function isUnsafePushHostname(hostname) {
+  const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+  const version = net.isIP(host);
+  if (version) return blockedPushAddresses.check(host, version === 4 ? 'ipv4' : 'ipv6');
+  if (
+    !host ||
+    !host.includes('.') ||
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    host.endsWith('.home.arpa')
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function parsePagination(query) {
@@ -84,9 +134,11 @@ function getAccessibleCircular(db, req, options = {}) {
   if (!row) throw new ApiError(404, 'circular_not_found', 'Circular was not found.');
 
   if (req.user.role === 'faculty') {
-    if (Number(row.faculty_id) !== req.user.id) {
+    const isOwner = Number(row.faculty_id) === req.user.id;
+    if (!isOwner && (options.ownerOnly || !userCanReceiveCircular(db, req.user.id, id))) {
       throw new ApiError(404, 'circular_not_found', 'Circular was not found.');
     }
+    if (!isOwner) return hydrateCircular(db, row, { recipientId: req.user.id });
     return hydrateCircular(db, row, {
       includeStats: true,
       includeRecipients: Boolean(options.includeRecipients),
@@ -96,20 +148,25 @@ function getAccessibleCircular(db, req, options = {}) {
   if (!studentCanAccessCircular(db, req.user.id, id)) {
     throw new ApiError(404, 'circular_not_found', 'Circular was not found in your inbox.');
   }
-  return hydrateCircular(db, row, { studentId: req.user.id });
+  return hydrateCircular(db, row, { recipientId: req.user.id });
 }
 
 function createApplication(options = {}) {
   const env = options.env || process.env;
+  if (env.NODE_ENV === 'production' && String(options.sessionSecret || env.SESSION_SECRET || '').length < 32) {
+    throw new Error('Production requires SESSION_SECRET with at least 32 characters.');
+  }
   const db = options.db || openDatabase({
     filename: options.dbPath,
     seed: options.seed,
+    env,
     bcryptRounds: options.bcryptRounds,
   });
   const app = express();
   app.disable('x-powered-by');
   app.set('env', options.envName || env.NODE_ENV || 'development');
   if (env.TRUST_PROXY) app.set('trust proxy', Number(env.TRUST_PROXY) || 1);
+  require('./security').applySecurity(app, { env, options });
 
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -118,7 +175,8 @@ function createApplication(options = {}) {
     if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
     next();
   });
-  app.use(express.json({ limit: '64kb', type: ['application/json', 'application/*+json'] }));
+  const jsonParser = express.json({ limit: '64kb', type: ['application/json', 'application/*+json'] });
+  app.use((req, res, next) => req.path === '/api/posts' || req.path.startsWith('/api/posts/') || req.path === '/api/circular-tools/attachments' ? next() : jsonParser(req, res, next));
 
   let sessionSecret = options.sessionSecret || env.SESSION_SECRET || getSetting(db, 'session_secret');
   if (!sessionSecret) {
@@ -142,6 +200,11 @@ function createApplication(options = {}) {
   });
   app.use(sessionMiddleware);
   app.use(attachCurrentUser(db));
+  app.use('/api/posts', require('./campus').campusRouter(db));
+  app.use('/api/admin', require('./admin').adminRouter(db));
+  app.use('/api/reports', require('./admin').reportsRouter(db));
+  app.use('/api/platform', require('./platform').platformRouter(db));
+  app.get('/api/config', (_req, res) => res.json(require('./admin').getCollegeConfig(db)));
 
   const notificationService =
     options.notificationService ||
@@ -155,6 +218,18 @@ function createApplication(options = {}) {
   app.locals.notificationService = notificationService;
   app.locals.publishCircular = () => {};
   app.locals.disconnectUserSockets = () => {};
+  app.locals.publishCampus = () => {};
+  app.locals.publishNotification = () => {};
+  const circularTools = require('./circular-tools').createCircularTools({
+    db, notificationService, publicOrigin: env.PUBLIC_ORIGIN,
+    publishCircular: (circular) => app.locals.publishCircular(circular),
+    onError: (error) => console.error('Scheduled circular failed:', error.message),
+  });
+  app.use('/api/circular-tools', circularTools.router);
+  if (app.get('env') !== 'test') {
+    circularTools.startScheduler();
+    notificationService.startDigestScheduler?.();
+  }
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, service: 'notify-circular' });
@@ -175,12 +250,13 @@ function createApplication(options = {}) {
         trim: false,
       });
       const row = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-      const valid = row ? await bcrypt.compare(password, row.password_hash) : false;
+      const valid = row && !row.disabled ? await bcrypt.compare(password, row.password_hash) : false;
       if (!valid) {
         throw new ApiError(401, 'invalid_credentials', 'Email or password is incorrect.');
       }
       await regenerateSession(req);
       req.session.userId = Number(row.id);
+      require('./admin').audit(db, { actorId: Number(row.id), action: 'login', resource: 'user', resourceId: Number(row.id) });
       res.json({ user: serializeUser(row) });
     }),
   );
@@ -190,6 +266,7 @@ function createApplication(options = {}) {
     asyncRoute(async (req, res) => {
       const body = requireObject(req.body);
       const name = cleanString(body.name, 'name', { min: 2, max: 100 });
+      assert(require('./admin').getCollegeConfig(db).registrationOpen, 403, 'registration_closed', 'Registration is currently closed. Contact your college administrator.');
       const email = cleanEmail(body.email);
       const password = cleanPassword(body.password);
       const year = cleanInteger(body.year, 'year', { min: 1, max: 4 });
@@ -284,76 +361,16 @@ function createApplication(options = {}) {
       .all()
       .map((student) => {
         const user = serializeUser(student);
-        return { id: user.id, name: user.name, email: user.email, year: user.year };
+        const profile = db.prepare('SELECT department FROM user_profiles WHERE user_id = ?').get(student.id);
+        return { id: user.id, name: user.name, email: user.email, year: user.year, department: profile?.department || '' };
       });
     res.json({ students });
   });
 
-  app.post(
-    '/api/groups',
-    requireRole('faculty'),
-    asyncRoute(async (req, res) => {
-      const body = requireObject(req.body);
-      const name = cleanString(body.name, 'name', { min: 2, max: 80 });
-      const description = cleanString(body.description ?? 'Custom group created by faculty', 'description', {
-        min: 0,
-        max: 240,
-      });
-      const icon = cleanString(body.icon ?? 'CR', 'icon', { min: 1, max: 16 });
-      const kind = body.kind ?? 'custom';
-      assert(
-        kind === 'custom' || kind === 'activity',
-        400,
-        'validation_error',
-        'Faculty-created groups must be custom or activity groups.',
-        { field: 'kind' },
-      );
-      const joinable = cleanBoolean(body.joinable, 'joinable', kind === 'activity');
-      const memberStudentIds =
-        body.memberStudentIds === undefined
-          ? []
-          : cleanIdArray(body.memberStudentIds, 'memberStudentIds', { max: 500 });
-      const slug = slugify(name);
-
-      if (db.prepare('SELECT 1 FROM groups WHERE slug = ? OR name = ?').get(slug, name)) {
-        throw new ApiError(409, 'group_exists', 'A group with this name already exists.');
-      }
-      if (memberStudentIds.length) {
-        const placeholders = memberStudentIds.map(() => '?').join(',');
-        const count = db
-          .prepare(`SELECT count(*) AS count FROM users WHERE role = 'student' AND id IN (${placeholders})`)
-          .get(...memberStudentIds).count;
-        assert(
-          Number(count) === memberStudentIds.length,
-          400,
-          'validation_error',
-          'One or more selected students do not exist.',
-          { field: 'memberStudentIds' },
-        );
-      }
-
-      const groupId = db.transaction(() => {
-        const now = utcNow();
-        const result = db
-          .prepare(`
-            INSERT INTO groups
-              (slug, name, description, icon, kind, joinable, creator_faculty_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `)
-          .run(slug, name, description, icon, kind, joinable ? 1 : 0, req.user.id, now);
-        const id = Number(result.lastInsertRowid);
-        const add = db.prepare(`
-          INSERT INTO student_group_memberships
-            (student_id, group_id, source, joined_at)
-          VALUES (?, ?, 'faculty', ?)
-        `);
-        for (const studentId of memberStudentIds) add.run(studentId, id, now);
-        return id;
-      })();
-
-      res.status(201).json({ group: getGroup(db, groupId) });
-    }),
-  );
+  app.get('/api/groups/create-options', requireRole('faculty'), (_req, res) => res.json(require('./group-creation').groupOptions(db)));
+  app.post('/api/groups', requireRole('faculty'), (req, res) => {
+    res.status(201).json({ group: require('./group-creation').createGroup(db, req.user, req.body) });
+  });
 
   app.get('/api/memberships', requireRole('student'), (req, res) => {
     const memberships = getMembershipGroups(db, req.user.id);
@@ -589,7 +606,9 @@ function createApplication(options = {}) {
   });
 
   app.get('/api/circulars/:id/accountability', requireRole('faculty'), (req, res) => {
-    res.json({ circular: getAccessibleCircular(db, req, { includeRecipients: true }) });
+    res.json({
+      circular: getAccessibleCircular(db, req, { includeRecipients: true, ownerOnly: true }),
+    });
   });
 
   app.get('/api/circulars/:id', requireAuth, (req, res) => {
@@ -598,11 +617,23 @@ function createApplication(options = {}) {
     });
   });
 
-  app.get('/api/inbox', requireRole('student'), (req, res) => {
+  app.get('/api/inbox', requireAuth, (req, res) => {
     const pagination = parsePagination(req.query);
     let groupId = null;
     if (req.query.groupId !== undefined) {
       groupId = cleanInteger(req.query.groupId, 'groupId', { min: 1 });
+      if (req.user.role === 'faculty') {
+        const group = getGroup(db, groupId);
+        if (!group || group.kind !== 'role') {
+          throw new ApiError(403, 'not_a_member', 'You are not a member of this group.');
+        }
+      }
+    }
+    if (req.user.role === 'faculty') {
+      res.json({ circulars: listFacultyInbox(db, req.user.id, { ...pagination, groupId }) });
+      return;
+    }
+    if (groupId !== null) {
       const membership = db
         .prepare(`
           SELECT 1 FROM student_group_memberships
@@ -616,12 +647,35 @@ function createApplication(options = {}) {
     res.json({ circulars: listStudentInbox(db, req.user.id, { ...pagination, groupId }) });
   });
 
-  app.post('/api/circulars/:id/read', requireRole('student'), (req, res) => {
+  app.post('/api/inbox/read-all', requireRole('student'), (req, res) => {
+    const result = db.transaction(() => {
+      const circularIds = db.prepare(`
+        SELECT DISTINCT c.id
+        FROM circulars c
+        JOIN circular_targets ct ON ct.circular_id = c.id
+        JOIN student_group_memberships m ON m.group_id = ct.group_id
+        LEFT JOIN circular_reads cr ON cr.circular_id = c.id AND cr.student_id = @studentId
+        WHERE m.student_id = @studentId AND cr.read_at IS NULL
+      `).all({ studentId: req.user.id }).map((row) => Number(row.id));
+      const readAt = utcNow();
+      const markRead = db.prepare(`
+        INSERT INTO circular_reads (circular_id, student_id, read_at, acknowledged_at)
+        VALUES (?, ?, ?, NULL)
+        ON CONFLICT(circular_id, student_id) DO UPDATE SET
+          read_at = coalesce(circular_reads.read_at, excluded.read_at)
+      `);
+      for (const circularId of circularIds) markRead.run(circularId, req.user.id, readAt);
+      return { updatedCount: circularIds.length, circularIds, readAt };
+    })();
+    res.json(result);
+  });
+
+  app.post('/api/circulars/:id/read', requireAuth, (req, res) => {
     const circularId = cleanInteger(req.params.id, 'id', { min: 1 });
     res.json({ status: markCircular(db, circularId, req.user.id, false) });
   });
 
-  app.post('/api/circulars/:id/ack', requireRole('student'), (req, res) => {
+  app.post('/api/circulars/:id/ack', requireAuth, (req, res) => {
     const circularId = cleanInteger(req.params.id, 'id', { min: 1 });
     const circular = getAccessibleCircular(db, req);
     if (!circular.requiresAcknowledgment) {
@@ -658,7 +712,7 @@ function createApplication(options = {}) {
 
   app.post(
     '/api/push/subscribe',
-    requireRole('student'),
+    requireAuth,
     asyncRoute(async (req, res) => {
       const body = requireObject(req.body);
       const subscription = requireObject(body.subscription, 'subscription');
@@ -679,6 +733,17 @@ function createApplication(options = {}) {
         400,
         'validation_error',
         'Push endpoint must use HTTPS.',
+        { field: 'subscription.endpoint' },
+      );
+      assert(
+        !parsedEndpoint.username &&
+          !parsedEndpoint.password &&
+          !parsedEndpoint.hash &&
+          (!parsedEndpoint.port || parsedEndpoint.port === '443') &&
+          !isUnsafePushHostname(parsedEndpoint.hostname),
+        400,
+        'validation_error',
+        'Push endpoint must use a public HTTPS origin.',
         { field: 'subscription.endpoint' },
       );
       const keys = requireObject(subscription.keys, 'subscription.keys');
@@ -709,7 +774,7 @@ function createApplication(options = {}) {
 
   app.delete(
     '/api/push/subscribe',
-    requireRole('student'),
+    requireAuth,
     asyncRoute(async (req, res) => {
       const body = requireObject(req.body);
       const endpoint = cleanString(body.endpoint, 'endpoint', { min: 10, max: 2048 });
@@ -717,27 +782,55 @@ function createApplication(options = {}) {
     }),
   );
 
-  // Only serve the known frontend surface; the database, source, and configuration remain private.
-  const workspaceRoot = WORKSPACE_ROOT;
-  const staticFiles = new Map([
-    ['/', 'index.html'],
-    ['/index.html', 'index.html'],
-    ['/script.js', 'script.js'],
-    ['/styles.css', 'styles.css'],
-    ['/manifest.webmanifest', 'manifest.webmanifest'],
-    ['/sw.js', 'sw.js'],
-  ]);
-  for (const [route, filename] of staticFiles) {
-    app.get(route, (req, res, next) => {
-      const filePath = path.join(workspaceRoot, filename);
-      if (!fs.existsSync(filePath)) return next();
-      if (filename === 'sw.js' || filename === 'index.html') res.setHeader('Cache-Control', 'no-cache');
-      return res.sendFile(filePath);
+  // Tests only serve a frontend when they inject a fixture, so repository build output cannot
+  // change API test behavior. Development and production use the normal Vite output directory.
+  const distPath =
+    app.get('env') === 'test' && options.distPath === undefined
+      ? null
+      : path.resolve(options.distPath || path.join(WORKSPACE_ROOT, 'dist'));
+  const distIndexPath = distPath ? path.join(distPath, 'index.html') : null;
+  if (distIndexPath && fs.existsSync(distIndexPath)) {
+    const distAssetsPath = path.join(distPath, 'assets');
+    if (fs.existsSync(distAssetsPath)) {
+      app.use('/assets', express.static(distAssetsPath, {
+        dotfiles: 'deny',
+        index: false,
+        immutable: true,
+        maxAge: '1y',
+      }));
+    }
+
+    const publicFiles = new Map([
+      ['/manifest.webmanifest', 'manifest.webmanifest'],
+      ['/sw.js', 'sw.js'],
+      ['/icon.svg', 'icon.svg'],
+      ['/maskable.svg', 'maskable.svg'],
+    ]);
+    for (const [route, filename] of publicFiles) {
+      const filePath = path.join(distPath, filename);
+      if (!fs.existsSync(filePath)) continue;
+      app.get(route, (_req, res) => {
+        res.setHeader('Cache-Control', 'no-cache');
+        if (filename === 'manifest.webmanifest') res.type('application/manifest+json');
+        if (filename === 'sw.js') res.setHeader('Service-Worker-Allowed', '/');
+        res.sendFile(filePath);
+      });
+    }
+
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      const normalizedPath = normalizeRequestPath(req.path);
+      if (!normalizedPath) return next();
+      const isFrontendRoute =
+        normalizedPath === '/' ||
+        normalizedPath === '/faculty' ||
+        normalizedPath.startsWith('/faculty/') ||
+        normalizedPath === '/student' ||
+        normalizedPath.startsWith('/student/') || normalizedPath === '/admin' || normalizedPath.startsWith('/admin/');
+      if (!isFrontendRoute) return next();
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.sendFile(distIndexPath);
     });
-  }
-  const assetsPath = path.join(workspaceRoot, 'assets');
-  if (fs.existsSync(assetsPath)) {
-    app.use('/assets', express.static(assetsPath, { dotfiles: 'deny', index: false, maxAge: '1d' }));
   }
 
   app.use(notFound);
@@ -759,6 +852,8 @@ function createApplication(options = {}) {
     sessionMiddleware,
     notificationService,
     close() {
+      circularTools.close();
+      notificationService.close?.();
       if (db.open) db.close();
     },
   };

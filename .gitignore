@@ -4,6 +4,7 @@ data/
 .env.*
 !.env.example
 coverage/
+dist/
 *.log
 test/.tmp/
 .DS_Store
@@ -11,3 +12,4 @@ Thumbs.db
 .chrome-smoke/
 .edge-smoke/
 .visual-check/
+/NotifyCircular-main.zip

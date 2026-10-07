@@ -29,6 +29,8 @@ const SCHEMA = `
     kind TEXT NOT NULL CHECK (kind IN ('year', 'activity', 'role', 'broadcast', 'custom')),
     joinable INTEGER NOT NULL DEFAULT 0 CHECK (joinable IN (0, 1)),
     year INTEGER CHECK (year IS NULL OR year BETWEEN 1 AND 4),
+    department TEXT NOT NULL DEFAULT '',
+    parent_group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL,
     creator_faculty_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL
   );
@@ -89,6 +91,35 @@ const SCHEMA = `
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS campus_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    caption TEXT NOT NULL CHECK(length(caption) BETWEEN 1 AND 2000),
+    topic TEXT NOT NULL DEFAULT 'general' CHECK(topic IN ('general', 'achievement', 'event', 'opportunity', 'question')),
+    image BLOB,
+    image_type TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS campus_likes (
+    post_id INTEGER NOT NULL REFERENCES campus_posts(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY(post_id, user_id)
+  );
+  CREATE TABLE IF NOT EXISTS campus_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL REFERENCES campus_posts(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text TEXT NOT NULL CHECK(length(text) BETWEEN 1 AND 500),
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS campus_saved_posts (
+    post_id INTEGER NOT NULL REFERENCES campus_posts(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY(post_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_campus_saved_user ON campus_saved_posts(user_id, post_id);
+  CREATE INDEX IF NOT EXISTS idx_campus_comments_post ON campus_comments(post_id, id);
 
   CREATE INDEX IF NOT EXISTS idx_memberships_group ON student_group_memberships(group_id, student_id);
   CREATE INDEX IF NOT EXISTS idx_targets_group ON circular_targets(group_id, circular_id);
@@ -178,6 +209,25 @@ function setSetting(db, key, value) {
   `).run(key, String(value));
 }
 
+function enforcePushEndpointOwnership(db) {
+  db.transaction(() => {
+    db.exec(`
+      DELETE FROM push_subscriptions AS stale
+      WHERE EXISTS (
+        SELECT 1
+        FROM push_subscriptions AS current
+        WHERE current.endpoint = stale.endpoint
+          AND (
+            current.updated_at > stale.updated_at OR
+            (current.updated_at = stale.updated_at AND current.id > stale.id)
+          )
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint
+        ON push_subscriptions(endpoint);
+    `);
+  })();
+}
+
 function seedDatabase(db, options = {}) {
   const rounds = options.bcryptRounds || (process.env.NODE_ENV === 'test' ? 4 : 10);
   const now = utcNow();
@@ -202,6 +252,14 @@ function seedDatabase(db, options = {}) {
     insertUser.run(
       'Dr. Meera Shah',
       'faculty@demo.edu',
+      bcrypt.hashSync('Faculty123!', rounds),
+      'faculty',
+      null,
+      now,
+    );
+    insertUser.run(
+      'Prof. Arjun Nair',
+      'arjun@demo.edu',
       bcrypt.hashSync('Faculty123!', rounds),
       'faculty',
       null,
@@ -307,13 +365,34 @@ function resolveDatabasePath(requestedPath) {
 }
 
 function openDatabase(options = {}) {
-  const filename = resolveDatabasePath(options.filename || process.env.DB_PATH);
+  const env = options.env || process.env;
+  const filename = resolveDatabasePath(options.filename || env.DB_PATH);
   const db = new Database(filename);
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   if (filename !== ':memory:') db.pragma('journal_mode = WAL');
   db.exec(SCHEMA);
-  if (options.seed !== false) seedDatabase(db, options);
+  require('./admin-migration').migrateAdmin(db);
+  if (!db.prepare('PRAGMA table_info(campus_posts)').all().some((column) => column.name === 'topic')) {
+    db.exec("ALTER TABLE campus_posts ADD COLUMN topic TEXT NOT NULL DEFAULT 'general' CHECK(topic IN ('general', 'achievement', 'event', 'opportunity', 'question'))");
+  }
+  const groupColumns = db.prepare('PRAGMA table_info(groups)').all().map((column) => column.name);
+  if (!groupColumns.includes('department')) db.exec("ALTER TABLE groups ADD COLUMN department TEXT NOT NULL DEFAULT ''");
+  if (!groupColumns.includes('section')) db.exec("ALTER TABLE groups ADD COLUMN section TEXT NOT NULL DEFAULT ''");
+  if (!groupColumns.includes('parent_group_id')) db.exec('ALTER TABLE groups ADD COLUMN parent_group_id INTEGER REFERENCES groups(id) ON DELETE SET NULL');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_campus_posts_topic ON campus_posts(topic, id)');
+  enforcePushEndpointOwnership(db);
+  require('./platform').migratePlatform(db);
+  require('./circular-tools-migration').migrateCircularTools(db);
+  // Provision automatic audiences even when demo people/notices are disabled.
+  const addGroup = db.prepare(`INSERT OR IGNORE INTO groups(slug,name,description,icon,kind,joinable,year,created_at)
+    VALUES(@slug,@name,@description,@icon,@kind,@joinable,@year,@createdAt)`);
+  db.transaction(() => { for (const group of BUILT_IN_GROUPS) addGroup.run({ ...group, createdAt: utcNow() }); })();
+  const seedDemo = options.seed ?? (env.NODE_ENV !== 'production' && env.SEED_DEMO_DATA !== 'false');
+  if (seedDemo) {
+    seedDatabase(db, options);
+    if (env.NODE_ENV !== 'production') require('./admin-migration').seedAdmin(db, options);
+  }
   return db;
 }
 

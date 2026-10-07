@@ -23,6 +23,10 @@ function serializeGroup(row) {
     icon: row.icon,
     kind: row.kind,
     joinable: Boolean(row.joinable),
+    year: row.year === null || row.year === undefined ? null : Number(row.year),
+    department: row.department || '',
+    section: row.section || '',
+    parentGroupId: row.parent_group_id === null || row.parent_group_id === undefined ? null : Number(row.parent_group_id),
   };
   if (row.is_member !== undefined) group.isMember = Boolean(row.is_member);
   if (row.member_count !== undefined) group.memberCount = Number(row.member_count);
@@ -34,15 +38,23 @@ function listGroups(db, user) {
     .prepare(`
       SELECT
         g.*,
-        EXISTS (
-          SELECT 1 FROM student_group_memberships own_membership
-          WHERE own_membership.group_id = g.id
-            AND own_membership.student_id = @userId
-        ) AS is_member,
-        (
-          SELECT count(*) FROM student_group_memberships all_memberships
-          WHERE all_memberships.group_id = g.id
-        ) AS member_count
+        CASE
+          WHEN @userRole = 'faculty' AND g.kind = 'role' THEN 1
+          ELSE EXISTS (
+            SELECT 1 FROM student_group_memberships own_membership
+            WHERE own_membership.group_id = g.id
+              AND own_membership.student_id = @userId
+          )
+        END AS is_member,
+        CASE
+          WHEN g.kind = 'role' THEN (
+            SELECT count(*) FROM users role_members WHERE role_members.role = 'faculty'
+          )
+          ELSE (
+            SELECT count(*) FROM student_group_memberships all_memberships
+            WHERE all_memberships.group_id = g.id
+          )
+        END AS member_count
       FROM groups g
       ORDER BY
         CASE g.kind
@@ -54,7 +66,7 @@ function listGroups(db, user) {
         END,
         g.name COLLATE NOCASE
     `)
-    .all({ userId: user?.id || -1 });
+    .all({ userId: user?.id || -1, userRole: user?.role || '' });
 
   return rows.map((row) => {
     const group = serializeGroup(row);
@@ -66,9 +78,14 @@ function listGroups(db, user) {
 function getGroup(db, id) {
   const row = db
     .prepare(`
-      SELECT g.*, (
-        SELECT count(*) FROM student_group_memberships m WHERE m.group_id = g.id
-      ) AS member_count
+      SELECT g.*, CASE
+        WHEN g.kind = 'role' THEN (
+          SELECT count(*) FROM users role_members WHERE role_members.role = 'faculty'
+        )
+        ELSE (
+          SELECT count(*) FROM student_group_memberships m WHERE m.group_id = g.id
+        )
+      END AS member_count
       FROM groups g WHERE g.id = ?
     `)
     .get(id);
@@ -130,7 +147,8 @@ function audienceRows(db, circularId) {
       FROM users u
       LEFT JOIN circular_reads cr
         ON cr.student_id = u.id AND cr.circular_id = @circularId
-      WHERE u.role = 'student'
+      WHERE u.disabled = 0 AND ((
+        u.role = 'student'
         AND EXISTS (
           SELECT 1
           FROM student_group_memberships m
@@ -138,19 +156,30 @@ function audienceRows(db, circularId) {
           WHERE m.student_id = u.id
             AND ct.circular_id = @circularId
         )
-      ORDER BY u.name COLLATE NOCASE, u.id
+      ) OR (
+        u.role = 'faculty'
+        AND EXISTS (
+          SELECT 1
+          FROM circular_targets ct
+          JOIN groups g ON g.id = ct.group_id
+          WHERE ct.circular_id = @circularId
+            AND g.kind = 'role'
+        )
+      )
+      ) ORDER BY u.name COLLATE NOCASE, u.id
     `)
     .all({ circularId });
 }
 
-function accountabilityFromRows(rows) {
+function accountabilityFromRows(rows, requiresAcknowledgment) {
   const read = rows.filter((row) => row.read_at).length;
   const acknowledged = rows.filter((row) => row.acknowledged_at).length;
   return {
     audience: rows.length,
     read,
+    pendingRead: rows.length - read,
     acknowledged,
-    pendingAcknowledgment: rows.length - acknowledged,
+    pendingAcknowledgment: requiresAcknowledgment ? rows.length - acknowledged : 0,
   };
 }
 
@@ -178,21 +207,23 @@ function hydrateCircular(db, rowOrId, options = {}) {
   const circular = serializeCircularRow(row);
   circular.targets = circularTargets(db, circular.id);
 
-  if (options.studentId) {
+  const recipientId = options.recipientId || options.studentId;
+  if (recipientId) {
     const status = db
       .prepare(`
         SELECT read_at, acknowledged_at
         FROM circular_reads
         WHERE circular_id = ? AND student_id = ?
       `)
-      .get(circular.id, options.studentId);
+      .get(circular.id, recipientId);
     circular.readAt = status?.read_at || null;
     circular.acknowledgedAt = status?.acknowledged_at || null;
+    circular.saved = Boolean(db.prepare('SELECT 1 FROM saved_circulars WHERE user_id=? AND circular_id=?').get(recipientId, circular.id));
   }
 
   if (options.includeStats || options.includeRecipients) {
     const rows = audienceRows(db, circular.id);
-    circular.stats = accountabilityFromRows(rows);
+    circular.stats = accountabilityFromRows(rows, circular.requiresAcknowledgment);
     if (options.includeRecipients) {
       circular.recipients = rows.map((recipient) => ({
         ...serializeUser(recipient),
@@ -201,21 +232,44 @@ function hydrateCircular(db, rowOrId, options = {}) {
       }));
     }
   }
+  Object.assign(circular, require('./circular-tools').getCircularExtras(db, circular.id));
   return circular;
 }
 
-function studentCanAccessCircular(db, studentId, circularId) {
+function userCanReceiveCircular(db, userId, circularId) {
   return Boolean(
     db
       .prepare(`
         SELECT 1
-        FROM circular_targets ct
-        JOIN student_group_memberships m ON m.group_id = ct.group_id
-        WHERE ct.circular_id = ? AND m.student_id = ?
+        FROM users u
+        WHERE u.id = @userId AND u.disabled = 0
+          AND (
+            (
+              u.role = 'student'
+              AND EXISTS (
+                SELECT 1
+                FROM circular_targets ct
+                JOIN student_group_memberships m ON m.group_id = ct.group_id
+                WHERE ct.circular_id = @circularId AND m.student_id = u.id
+              )
+            ) OR (
+              u.role = 'faculty'
+              AND EXISTS (
+                SELECT 1
+                FROM circular_targets ct
+                JOIN groups g ON g.id = ct.group_id
+                WHERE ct.circular_id = @circularId AND g.kind = 'role'
+              )
+            )
+          )
         LIMIT 1
       `)
-      .get(circularId, studentId),
+      .get({ circularId, userId }),
   );
+}
+
+function studentCanAccessCircular(db, studentId, circularId) {
+  return userCanReceiveCircular(db, studentId, circularId);
 }
 
 function listStudentInbox(db, studentId, options = {}) {
@@ -263,6 +317,31 @@ function listFacultyCirculars(db, facultyId, options = {}) {
   return rows.map((row) => hydrateCircular(db, row, { includeStats: true }));
 }
 
+function listFacultyInbox(db, facultyId, options = {}) {
+  const rows = db
+    .prepare(`
+      SELECT DISTINCT
+        c.*,
+        u.id AS faculty_user_id,
+        u.name AS faculty_name,
+        u.email AS faculty_email
+      FROM circulars c
+      JOIN users u ON u.id = c.faculty_id
+      JOIN circular_targets ct ON ct.circular_id = c.id
+      JOIN groups g ON g.id = ct.group_id
+      WHERE g.kind = 'role'
+        AND (@groupId IS NULL OR g.id = @groupId)
+      ORDER BY c.created_at DESC, c.id DESC
+      LIMIT @limit OFFSET @offset
+    `)
+    .all({
+      groupId: options.groupId || null,
+      limit: options.limit || 100,
+      offset: options.offset || 0,
+    });
+  return rows.map((row) => hydrateCircular(db, row, { recipientId: facultyId }));
+}
+
 function createCircular(db, input) {
   return db.transaction(() => {
     const result = db
@@ -301,8 +380,8 @@ function createCircular(db, input) {
   })();
 }
 
-function markCircular(db, circularId, studentId, acknowledge = false) {
-  if (!studentCanAccessCircular(db, studentId, circularId)) {
+function markCircular(db, circularId, recipientId, acknowledge = false) {
+  if (!userCanReceiveCircular(db, recipientId, circularId)) {
     throw new ApiError(404, 'circular_not_found', 'Circular was not found in your inbox.');
   }
   const now = utcNow();
@@ -318,7 +397,7 @@ function markCircular(db, circularId, studentId, acknowledge = false) {
       END
   `).run({
     circularId,
-    studentId,
+    studentId: recipientId,
     now,
     acknowledgedAt: acknowledge ? now : null,
   });
@@ -328,7 +407,7 @@ function markCircular(db, circularId, studentId, acknowledge = false) {
       FROM circular_reads
       WHERE circular_id = ? AND student_id = ?
     `)
-    .get(circularId, studentId);
+    .get(circularId, recipientId);
   return { readAt: status.read_at, acknowledgedAt: status.acknowledged_at || null };
 }
 
@@ -342,9 +421,11 @@ module.exports = {
   circularTargets,
   audienceRows,
   hydrateCircular,
+  userCanReceiveCircular,
   studentCanAccessCircular,
   listStudentInbox,
   listFacultyCirculars,
+  listFacultyInbox,
   createCircular,
   markCircular,
 };

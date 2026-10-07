@@ -1,0 +1,14 @@
+services:
+  campusrelay:
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      SESSION_SECRET: ${SESSION_SECRET:?Set a strong session secret}
+      APP_URL: ${APP_URL:-https://campus.example.edu}
+      TRUST_PROXY: "1"
+    volumes:
+      - campusrelay-data:/app/data
+    restart: unless-stopped
+volumes:
+  campusrelay-data:
