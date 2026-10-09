@@ -13,7 +13,7 @@ it('requires a production secret, seeds only audiences, and serves secure authen
   const distPath = fs.mkdtempSync(path.join(os.tmpdir(), 'campusrelay-production-'));
   const indexPath = path.join(distPath, 'index.html');
   fs.writeFileSync(indexPath, '<!doctype html><title>CampusRelay production fixture</title>');
-  const context = createApplication({ dbPath: ':memory:', distPath, env: { NODE_ENV: 'production', SESSION_SECRET: 'isolated-production-test-secret-32-characters', TRUST_PROXY: '1', APP_URL: 'https://campus.example.edu' }, disableOutboundNotifications: true });
+  const context = createApplication({ dbPath: ':memory:', distPath, env: { NODE_ENV: 'production', AUTH_MODE: 'local', SESSION_SECRET: 'isolated-production-test-secret-32-characters', TRUST_PROXY: '1', APP_URL: 'https://campus.example.edu' }, disableOutboundNotifications: true });
   try {
     assert.equal(context.db.prepare('SELECT count(*) n FROM users').get().n, 0);
     assert.equal(context.db.prepare("SELECT count(*) n FROM groups WHERE kind='year'").get().n, 4);

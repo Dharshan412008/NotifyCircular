@@ -233,7 +233,7 @@ export default function App() {
   useEffect(() => {
     if (!session.isSuccess || user) return;
     queryClient.removeQueries({
-      predicate: (query) => query.queryKey[0] !== 'session',
+      predicate: (query) => !['session', 'auth-options'].includes(String(query.queryKey[0])),
     });
   }, [queryClient, session.isSuccess, user]);
 
@@ -284,7 +284,7 @@ export default function App() {
       <RouteBoundary><Suspense fallback={<RouteLoading />}><Routes>
         <Route
           path="/"
-          element={session.isPending ? <LoadingScreen /> : (
+          element={session.isPending ? <LoadingScreen /> : !user ? (session.isError ? portal('student') : <AuthScreen role="student" onAuthenticated={handleAuthenticated} installAvailable={Boolean(installPrompt)} onInstall={handleInstall} />) : (
             <StartScreen
               user={user}
               theme={theme}

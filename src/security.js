@@ -52,7 +52,11 @@ function applySecurity(app, { env = process.env, options = {} } = {}) {
     standardHeaders: 'draft-8', legacyHeaders: false, skipSuccessfulRequests: true,
     message: { error: { code: 'too_many_attempts', message: 'Too many sign-in attempts. Please try again later.' } },
   });
-  app.use(['/api/auth/login', '/api/auth/register'], limiter);
+  app.use(['/api/auth/login', '/api/auth/register', '/api/auth/google/start', '/api/auth/google/callback'], limiter);
+  app.use('/api/auth/verification', rateLimit({ windowMs: 15 * 60 * 1000, limit: 30,
+    standardHeaders: 'draft-8', legacyHeaders: false,
+    message: { error: { code: 'too_many_attempts', message: 'Too many verification requests. Please try again later.' } },
+  }));
 }
 
 module.exports = { applySecurity };

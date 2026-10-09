@@ -1,3 +1,4 @@
+import { signIn } from './sign-in.js';
 import { expect, test } from '@playwright/test';
 
 async function expectNoHorizontalOverflow(page) {
@@ -14,7 +15,7 @@ async function expectNoHorizontalOverflow(page) {
 test('renders the routed React shell without legacy assets', async ({ page }, testInfo) => {
   await page.goto('/');
   await expect(page).toHaveTitle('CampusRelay | Smart circulars');
-  await expect(page.getByRole('heading', { name: /the right notice/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /sign in to campusrelay/i })).toBeVisible();
   await expect(page.locator('script[src="/script.js"]')).toHaveCount(0);
   await expect(page.locator('#root .device')).toHaveCount(1);
   await expectNoHorizontalOverflow(page);
@@ -22,9 +23,9 @@ test('renders the routed React shell without legacy assets', async ({ page }, te
   await page.screenshot({ path: testInfo.outputPath('home.png'), fullPage: true });
 });
 
-test('faculty demo reaches compose and group routes', async ({ page }, testInfo) => {
+test('faculty login reaches compose and group routes', async ({ page }, testInfo) => {
   await page.goto('/faculty');
-  await page.getByRole('button', { name: /dr\. meera shah/i }).click();
+  await signIn(page, 'faculty');
   await expect(page).toHaveURL(/\/faculty\/compose$/);
   await expect(page.getByRole('heading', { name: /compose an official notice/i })).toBeVisible();
   const theme = page.getByRole('switch', { name: 'Dark theme', exact: true });
@@ -47,9 +48,9 @@ test('faculty demo reaches compose and group routes', async ({ page }, testInfo)
   await expect(page).toHaveURL(/\/$/);
 });
 
-test('student demo receives only its membership-filtered inbox', async ({ page }, testInfo) => {
+test('student login receives only its membership-filtered inbox', async ({ page }, testInfo) => {
   await page.goto('/student');
-  await page.getByRole('button', { name: /asha rao/i }).click();
+  await signIn(page, 'student');
   await expect(page).toHaveURL(/\/student$/);
   await expect(page.getByRole('heading', { name: /your circulars/i })).toBeVisible();
   await expect(page.locator('.inbox-list').getByText('Sports Group', { exact: true }).first()).toBeVisible();
@@ -63,29 +64,16 @@ test('student demo receives only its membership-filtered inbox', async ({ page }
   await expect(page.getByRole('checkbox', { name: /sports group/i })).toBeChecked();
 });
 
-test('student registration remains reachable on a short mobile viewport', async ({ page }, testInfo) => {
+test('college login remains usable on a short mobile viewport', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile-edge', 'Mobile viewport coverage only');
   await page.setViewportSize({ width: 320, height: 568 });
-  await page.goto('/student');
-  await page.getByRole('button', { name: /create your account/i }).click();
-  await expect(page.getByRole('heading', { name: /create your account/i })).toBeVisible();
-
-  const submit = page.getByRole('button', { name: /create student account/i });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Sign in to CampusRelay' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Student portal', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  const submit = page.getByRole('button', { name: 'Sign in securely' });
   await submit.scrollIntoViewIfNeeded();
   await expect(submit).toBeVisible();
-  const layout = await page.locator('.auth-screen').evaluate((screen) => {
-    const button = screen.querySelector('button[type="submit"]');
-    const buttonRect = button.getBoundingClientRect();
-    return {
-      canScroll: screen.scrollHeight > screen.clientHeight,
-      buttonTop: buttonRect.top,
-      buttonBottom: buttonRect.bottom,
-      viewportHeight: window.innerHeight,
-    };
-  });
-  expect(layout.canScroll).toBe(true);
-  expect(layout.buttonTop).toBeGreaterThanOrEqual(0);
-  expect(layout.buttonBottom).toBeLessThanOrEqual(layout.viewportHeight + 1);
+  await expect(page.getByText(/try now|guided demo/i)).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 });
 
@@ -100,7 +88,7 @@ test('routes a live circular only to the targeted student and records it as read
     contexts.push(facultyContext);
     const facultyPage = await facultyContext.newPage();
     await facultyPage.goto('/faculty');
-    await facultyPage.getByRole('button', { name: /dr\. meera shah/i }).click();
+    await signIn(facultyPage, 'faculty');
     await facultyPage.getByLabel(/circular message/i).fill(notice);
     await expect(facultyPage.locator('.smart-title small')).toContainText(/audience suggestion/);
     await facultyPage.getByRole('button', { name: 'Add group' }).click();
@@ -118,7 +106,7 @@ test('routes a live circular only to the targeted student and records it as read
     const ashaInboxResponse = ashaPage.waitForResponse((response) => (
       response.url().endsWith('/api/inbox') && response.status() === 200
     ));
-    await ashaPage.getByRole('button', { name: /asha rao/i }).click();
+    await signIn(ashaPage, 'student');
     await ashaInboxResponse;
     const ashaCard = ashaPage.locator('.inbox-card').filter({ hasText: notice });
     await expect(ashaCard).toHaveCount(1);

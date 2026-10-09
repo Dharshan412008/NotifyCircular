@@ -54,7 +54,7 @@ describe('App shell preferences', () => {
   it('offers the captured browser installation prompt', async () => {
     const user = userEvent.setup();
     renderApp();
-    await screen.findByRole('heading', { name: /the right notice/i });
+    await screen.findByRole('heading', { name: /sign in to campusrelay/i });
     const prompt = vi.fn().mockResolvedValue(undefined);
     const event = new Event('beforeinstallprompt', { cancelable: true });
     Object.defineProperties(event, {

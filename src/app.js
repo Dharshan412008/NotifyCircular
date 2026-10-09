@@ -158,7 +158,7 @@ function createApplication(options = {}) {
   }
   const db = options.db || openDatabase({
     filename: options.dbPath,
-    seed: options.seed,
+    seed: options.seed ?? (options.envName !== 'test' && env.AUTH_MODE !== 'local' ? false : undefined),
     env,
     bcryptRounds: options.bcryptRounds,
   });
@@ -200,6 +200,18 @@ function createApplication(options = {}) {
   });
   app.use(sessionMiddleware);
   app.use(attachCurrentUser(db));
+  const authSettings = require('./google-auth').configureGoogleAuth(app, db, env, options);
+  app.locals.authSettings = authSettings;
+  const emailVerification = require('./email-verification').configureEmailVerification(app, db, env, options, authSettings.collegePasswordAuth);
+  app.locals.emailVerification = emailVerification;
+  app.use((req, _res, next) => {
+    if (req.user && ((!authSettings.localAuth && req.session.authProvider !== 'google') || (authSettings.collegePasswordAuth && (!req.user.email.endsWith('@srishakthi.ac.in') || !emailVerification.verified(req.user.id))))) {
+      req.user = null;
+      delete req.session.userId;
+    }
+    next();
+  });
+  app.use('/api/discussions', require('./discussions').discussionsRouter(db));
   app.use('/api/posts', require('./campus').campusRouter(db));
   app.use('/api/admin', require('./admin').adminRouter(db));
   app.use('/api/reports', require('./admin').reportsRouter(db));
@@ -242,8 +254,10 @@ function createApplication(options = {}) {
   app.post(
     '/api/auth/login',
     asyncRoute(async (req, res) => {
+      assert(authSettings.localAuth, 403, 'google_required', 'Use Sign in with Google with your verified college account.');
       const body = requireObject(req.body);
       const email = cleanEmail(body.email);
+      assert(!authSettings.collegePasswordAuth || email.endsWith('@srishakthi.ac.in'), 400, 'college_email', 'Use an email address ending in @srishakthi.ac.in.');
       const password = cleanString(body.password, 'password', {
         min: 1,
         max: 128,
@@ -254,6 +268,8 @@ function createApplication(options = {}) {
       if (!valid) {
         throw new ApiError(401, 'invalid_credentials', 'Email or password is incorrect.');
       }
+      assert(!body.role || body.role === row.role, 403, 'wrong_portal', 'This account is not assigned to the selected portal. Choose the correct portal or contact your college.');
+      if (authSettings.collegePasswordAuth && !emailVerification.verified(row.id)) return res.json(await emailVerification.begin(req, row));
       await regenerateSession(req);
       req.session.userId = Number(row.id);
       require('./admin').audit(db, { actorId: Number(row.id), action: 'login', resource: 'user', resourceId: Number(row.id) });
@@ -264,14 +280,19 @@ function createApplication(options = {}) {
   app.post(
     '/api/auth/register',
     asyncRoute(async (req, res) => {
+      assert(authSettings.localAuth, 403, 'google_required', 'Use Sign in with Google with your verified college account.');
       const body = requireObject(req.body);
       const name = cleanString(body.name, 'name', { min: 2, max: 100 });
       assert(require('./admin').getCollegeConfig(db).registrationOpen, 403, 'registration_closed', 'Registration is currently closed. Contact your college administrator.');
       const email = cleanEmail(body.email);
+      assert(!authSettings.collegePasswordAuth || email.endsWith('@srishakthi.ac.in'), 400, 'college_email', 'Use an email address ending in @srishakthi.ac.in.');
       const password = cleanPassword(body.password);
-      const year = cleanInteger(body.year, 'year', { min: 1, max: 4 });
+      if (authSettings.collegePasswordAuth) emailVerification.assertReady();
+      assert(body.role !== 'faculty' || !authSettings.collegePasswordAuth, 403, 'approval_required', 'Contact your administrator to create a faculty account in college verification mode.');
+      const role = body.role === 'faculty' ? 'faculty' : 'student';
+      const year = role === 'student' ? cleanInteger(body.year, 'year', { min: 1, max: 4 }) : null;
       const activityGroupIds =
-        body.activityGroupIds === undefined
+        role === 'faculty' || body.activityGroupIds === undefined
           ? []
           : cleanIdArray(body.activityGroupIds, 'activityGroupIds', { max: 25 });
 
@@ -302,10 +323,11 @@ function createApplication(options = {}) {
         const result = db
           .prepare(`
             INSERT INTO users (name, email, password_hash, role, year, created_at)
-            VALUES (?, ?, ?, 'student', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
           `)
-          .run(name, email, passwordHash, year, now);
+          .run(name, email, passwordHash, role, year, now);
         const id = Number(result.lastInsertRowid);
+        if (role === 'faculty') return id;
         const automaticGroups = db
           .prepare(`
             SELECT id FROM groups
@@ -326,9 +348,10 @@ function createApplication(options = {}) {
         return id;
       })();
 
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+      if (authSettings.collegePasswordAuth) return res.status(201).json(await emailVerification.begin(req, user));
       await regenerateSession(req);
       req.session.userId = userId;
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
       res.status(201).json({ user: serializeUser(user) });
     }),
   );

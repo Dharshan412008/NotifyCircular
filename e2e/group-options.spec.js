@@ -1,3 +1,4 @@
+import { signIn } from './sign-in.js';
 import { expect, test } from '@playwright/test';
 
 test('creates a section group with joining permissions and a deduplicated member preview', async ({ page }, testInfo) => {
@@ -5,7 +6,7 @@ test('creates a section group with joining permissions and a deduplicated member
   await page.request.put('/api/platform/profile', { data: { name: 'Asha Rao', department: 'Computing', section: 'A', register_number: '', program: '', academic_year: '', bio: '' } });
   await page.request.post('/api/auth/logout');
   await page.goto('/faculty/groups');
-  await page.getByRole('button', { name: /meera shah/i }).click();
+  await signIn(page, 'faculty');
   await page.getByRole('button', { name: 'Create group', exact: true }).click();
   const dialog = page.getByRole('dialog');
   const groupName = `Computing A ${testInfo.project.name} ${Date.now()}`;

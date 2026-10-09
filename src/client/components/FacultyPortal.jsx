@@ -36,6 +36,7 @@ import { apiRequest, getErrorMessage } from '../api.js';
 import Modal from './Modal.jsx';
 import CampusFeed from './CampusFeed.jsx';
 import PortalThemeButton from './PortalThemeButton.jsx';
+const Discussions = lazy(() => import('./Discussions.tsx'));
 const Overview = lazy(() => import('./Overview.jsx'));
 const Analytics = lazy(() => import('./Analytics.tsx'));
 const CircularWorkbench = lazy(() => import('./CircularWorkbench.jsx'));
@@ -1231,6 +1232,7 @@ export default function FacultyPortal({ user, onLogout }) {
           <Route path="sent/:id" element={<SentCircularDetail user={user} />} />
           <Route path="sent" element={<SentCirculars user={user} />} />
           <Route path="campus" element={<CampusFeed user={user} />} />
+          <Route path="discussions" element={<Discussions user={user} />} />
           <Route path="groups" element={<GroupDirectory groupsQuery={groupsQuery} />} />
           <Route path="account" element={<FacultyAccount user={user} onLogout={onLogout} />} />
           <Route path="*" element={<Navigate to="compose" replace />} />

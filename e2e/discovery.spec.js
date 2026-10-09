@@ -1,8 +1,9 @@
+import { signIn } from './sign-in.js';
 import { expect, test } from '@playwright/test';
 
 test('keeps discovery filters and display preferences after reload', async ({ page }, testInfo) => {
   await page.goto('/student');
-  await page.getByRole('button', { name: /asha rao/i }).click();
+  await signIn(page, 'student');
   await page.getByRole('combobox', { name: 'Sort notices' }).selectOption('priority');
   await page.getByRole('combobox', { name: 'Received' }).selectOption('30');
   await page.reload();

@@ -4,6 +4,8 @@ The Aurora Pulse interface adds desktop navigation, mobile More navigation, ligh
 
 ## API map
 
+Group discussion endpoints live under `/api/discussions`: channel discovery, `/:groupId/messages` (search, pinned filter, cursor pagination), `/:groupId/read`, and per-message reactions, pins and removal. Every request rechecks current membership or staff role, including access to reply targets. Students cannot pin or remove other authors' messages. Removed text is scrubbed from quoted replies. Discussion reads are independent of official circular acknowledgments. Messages and reactions use SQLite; active views poll every five seconds without browser/email notifications.
+
 Every private endpoint uses the persisted session and server role checks.
 
 - `/api/platform/overview`, `/search?q=`, `/events`: personalized discovery.

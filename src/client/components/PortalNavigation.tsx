@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sparkles, Inbox, CalendarDays, Users, UserRound, FilePenLine, ClipboardList, House, Bookmark, Ellipsis, BarChart3, Layers, Settings, Radio } from 'lucide-react';
+import { Sparkles, Inbox, CalendarDays, Users, UserRound, FilePenLine, ClipboardList, House, Bookmark, Ellipsis, BarChart3, Layers, Settings, Radio, MessageCircle } from 'lucide-react';
 import Modal from './Modal.jsx';
 
 type NavigationItem = [string, string, LucideIcon];
@@ -11,10 +11,10 @@ export default function PortalNavigation({ role }: { role: 'faculty' | 'student'
   const base = `/${role}`;
   const items: NavigationItem[] = role === 'faculty' ? [
     ['compose', 'Compose', FilePenLine], ['sent', 'Sent', ClipboardList], ['campus', 'Campus', Sparkles], ['groups', 'Groups', Users],
-    ['overview', 'Overview', House], ['workbench', 'Circular studio', Layers], ['events', 'Events', CalendarDays], ['analytics', 'Analytics', BarChart3], ['account', 'Account', UserRound], ['settings', 'Preferences', Settings],
+    ['discussions', 'Discussions', MessageCircle], ['overview', 'Overview', House], ['workbench', 'Circular studio', Layers], ['events', 'Events', CalendarDays], ['analytics', 'Analytics', BarChart3], ['account', 'Account', UserRound], ['settings', 'Preferences', Settings],
   ] : [
     ['campus', 'Campus', Sparkles], ['', 'Inbox', Inbox], ['events', 'Events', CalendarDays], ['groups', 'Groups', Users],
-    ['overview', 'Overview', House], ['saved', 'Saved notices', Bookmark], ['account', 'Account', UserRound], ['settings', 'Preferences', Settings],
+    ['discussions', 'Discussions', MessageCircle], ['overview', 'Overview', House], ['saved', 'Saved notices', Bookmark], ['account', 'Account', UserRound], ['settings', 'Preferences', Settings],
   ];
   function itemButton([path, label, Icon]: NavigationItem, index: number, inModal = false) {
     const href = path ? `${base}/${path}` : base;

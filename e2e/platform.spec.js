@@ -1,8 +1,9 @@
+import { signIn } from './sign-in.js';
 import { expect, test } from '@playwright/test';
 
 test('opens the dashboards, studio, profile, and administration', async ({ page }, testInfo) => {
   await page.goto('/faculty/workbench');
-  await page.getByRole('button', { name: /meera shah/i }).click();
+  await signIn(page, 'faculty');
   await expect(page.getByRole('heading', { name: 'Circular studio', exact: true })).toBeVisible();
   await page.getByLabel('Circular title').fill(`Studio draft ${testInfo.project.name}`);
   await page.getByRole('button', { name: 'Save draft', exact: true }).click();
@@ -25,7 +26,7 @@ test('opens the dashboards, studio, profile, and administration', async ({ page 
   await expect(page.getByText('Profile saved.', { exact: true })).toBeVisible();
   await page.request.post('/api/auth/logout');
   await page.goto('/admin');
-  await page.getByRole('button', { name: /college administrator/i }).click();
+  await signIn(page, 'admin');
   await expect(page.getByRole('heading', { name: 'Your campus, at a glance', exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('aurora-admin.png'), fullPage: true });
 });

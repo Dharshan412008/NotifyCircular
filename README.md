@@ -36,23 +36,15 @@ npm.cmd run verify
 
 This runs the API and React component suites, builds the client, and runs Playwright against a dedicated in-memory server on port 3100. The browser tests never read or modify `data/notify-circular.db`.
 
-## Demo accounts
+## College sign-in
 
-| Role | Email | Password | Memberships |
-| --- | --- | --- | --- |
-| Faculty | `faculty@demo.edu` | `Faculty123!` | Faculty portal |
-| Student | `asha@demo.edu` | `Student123!` | First Year, Sports Group, Whole College |
-| Student | `ravi@demo.edu` | `Student123!` | Final Year, Whole College |
+First visits open the login screen. Select Student or Faculty and sign in with your email and CampusRelay password. Gmail and other valid email addresses are accepted. No OTP, email sender, or Google Cloud setup is required in the default `AUTH_MODE=password` mode. New students choose **New student? Create an account**, enter their name, email and academic year, and create a password of at least eight characters. Do not enter your Gmail password.
 
-The guided demo buttons still submit these credentials to the real login endpoint. They do not bypass authentication.
-
-## Platform upgrade
-
-Open **More** on mobile or use the desktop sidebar for Overview, Circular studio, Saved notices, and Preferences. Both portals have global search (Ctrl/Cmd K) and a notification center. Faculty can save drafts and templates, schedule circulars, attach protected files, and create expiring attendance QR codes. Students can save notices and use list/month calendar views. Administrators can manage users and groups, moderate reported posts/comments, and inspect audit history at `/admin`.
-
-Local administrator: `admin@demo.edu` / `Admin123!`. Production provisioning, API details and implementation limits are documented in [docs/PLATFORM.md](docs/PLATFORM.md).
+Faculty can choose **New faculty? Create an account** in the Faculty portal to register with an email and CampusRelay password. Faculty registration in normal password mode grants faculty access immediately. Administrator accounts must still be provisioned. Existing accounts cannot switch roles by selecting another portal. Existing account passwords continue to work. Email ownership is not verified in normal password mode. Optional college OTP uses `AUTH_MODE=college`; optional Google sign-in uses `AUTH_MODE=google`.
 
 ## Implemented features
+
+- **Discussions** brings group channels, quoted replies, four emoji reactions, unread counts, message search and faculty-managed pins to both portals. Find it in the desktop sidebar or **More → Discussions** on mobile. Students can access only their current groups; faculty can oversee all non-role groups. Messages refresh every five seconds, with older-message pagination and a separate mark-read action. Authors can remove their messages; faculty can moderate and pin up to five messages per group.
 
 - Inbox discovery combines group, received-date and status filters with newest, oldest or priority sorting. Result counts and one-click reset make active filters clear; selections survive refresh and returning from a circular.
 - Campus search, topic and collection filters stay in the URL for refresh and browser navigation. Publishing from a focused post returns to the full feed so the new post is visible.
@@ -71,8 +63,8 @@ Local administrator: `admin@demo.edu` / `Admin123!`. Production provisioning, AP
 - Shared **Campus** feed in both portals: all signed-in students and faculty can publish college updates and achievements, attach one JPEG/PNG/WebP photo (up to 2 MB), like posts, and comment. Authors can delete their own posts. Posts, photos, likes, and comments persist in SQLite. The feed loads newest first, supports loading older posts, and refreshes every 30 seconds or using the refresh button.
 
 - React Router routes for `/`, `/faculty/*`, and `/student/*`, including production history fallback.
-- Real faculty and student login with bcrypt-hashed passwords and persisted Express sessions.
-- Student registration with automatic year and Whole College membership.
+- Email/password sign-in with persisted sessions and server-enforced portal roles; optional college OTP or Google verification.
+- Verified first-time students receive Whole College membership; academic year is assigned by administrators.
 - Optional activity memberships that students can update themselves.
 - Faculty-created custom or activity groups with explicit student membership management.
 - Multi-group circular targeting.
@@ -84,15 +76,6 @@ Local administrator: `admin@demo.edu` / `Admin123!`. Production provisioning, AP
 The React portals also include Smart Compose audience suggestions, editable priority/date/summary, required acknowledgments, individual recipient analytics, calendar export, and browser push controls. Smart Compose runs locally without an external AI account. The production build supports installation and caches the application shell; inbox data still requires a connection.
 
 Web Push requires browser permission. Email fallback uses SMTP when configured; otherwise it is captured locally using a JSON transport and does not send real email. See `.env.example` for configuration variables and set them in the server environment.
-
-## Guided demo
-
-1. Open the home screen. Say: "CampusRelay routes official notices by real membership, not by hiding rows in the browser." Click **Faculty portal**, then **Try now**.
-2. Open **Groups**. Say: "Year and campus groups are automatic; faculty can also create a precise audience." Click **Create group**, name it **Robotics Club**, select Ravi, and create it.
-3. Open **Compose**. Enter: **Robotics lab access is available Friday at 3 PM. Bring your college ID.** Review the suggested audience, date, priority, and summary. Click **Add group**, select **Robotics Club** and **Whole College**, then click **Use 2 groups**.
-4. Click **Review & send**. Point to the estimated reach and say: "Group memberships can overlap; the server response reports the exact deduplicated audience." Click **Send circular**.
-5. In a private window, open the student portal and sign in as Asha. Say: "Asha receives the Whole College copy because that membership is stored in SQLite." Open the circular and show **Download .txt**.
-6. Return to the faculty window and open **Sent**. Say: "The circular, targets, and current audience survive refreshes and server restarts. This is now a multi-user system rather than a single-tab mockup."
 
 ## Project map
 

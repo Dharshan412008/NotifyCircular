@@ -20,7 +20,7 @@ function createServer(options = {}) {
   io.engine.use(context.sessionMiddleware);
   io.use((socket, next) => {
     const userId = Number(socket.request.session?.userId);
-    if (!Number.isSafeInteger(userId) || userId < 1) {
+    if (!Number.isSafeInteger(userId) || userId < 1 || (!context.app.locals.authSettings.localAuth && socket.request.session?.authProvider !== 'google')) {
       const error = new Error('Authentication required');
       error.data = { code: 'authentication_required' };
       return next(error);
@@ -28,7 +28,7 @@ function createServer(options = {}) {
     const user = context.db
       .prepare('SELECT id, name, email, role, year FROM users WHERE id = ? AND disabled = 0')
       .get(userId);
-    if (!user) return next(new Error('Authentication required'));
+    if (!user || (context.app.locals.authSettings.collegePasswordAuth && (!user.email.endsWith('@srishakthi.ac.in') || !context.app.locals.emailVerification.verified(user.id)))) return next(new Error('Authentication required'));
     socket.data.user = user;
     return next();
   });
@@ -84,8 +84,7 @@ if (require.main === module) {
   const server = createServer();
   server.listen(port, host, () => {
     console.log(`NotifyCircular is running at http://${host}:${port}`);
-    console.log('Faculty demo: faculty@demo.edu / Faculty123!');
-    console.log('Student demos: asha@demo.edu or ravi@demo.edu / Student123!');
+    console.log('Open CampusRelay and sign in using your configured login method.');
   });
 
   const shutdown = async () => {

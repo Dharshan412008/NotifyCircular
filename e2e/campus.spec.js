@@ -1,9 +1,10 @@
+import { signIn } from './sign-in.js';
 import { expect, test } from '@playwright/test';
 
 test('students share campus photos and faculty can like and comment', async ({ page, browser }, testInfo) => {
   const caption = `Robotics club won the campus challenge! ${testInfo.project.name} ${Date.now()}`;
   await page.goto('/student');
-  await page.getByRole('button', { name: /asha rao/i }).click();
+  await signIn(page, 'student');
   await page.getByRole('button', { name: 'Campus', exact: true }).click();
   await expect(page).toHaveURL(/\/student\/campus$/);
   await page.getByRole('button', { name: /share something with campus/i }).click();
@@ -40,7 +41,7 @@ test('students share campus photos and faculty can like and comment', async ({ p
   try {
     const faculty = await other.newPage();
     await faculty.goto('/faculty');
-    await faculty.getByRole('button', { name: /dr\. meera shah/i }).click();
+    await signIn(faculty, 'faculty');
     await faculty.getByRole('button', { name: 'Campus', exact: true }).click();
     const post = faculty.getByRole('article').filter({ hasText: caption });
     await expect(post).toBeVisible();

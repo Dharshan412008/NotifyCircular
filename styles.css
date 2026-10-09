@@ -3523,3 +3523,52 @@ html[data-motion="reduced"] *, html[data-motion="reduced"] *::before, html[data-
   .display-preferences .discovery-controls { grid-template-columns: 1fr; }
 }
 @media (max-width: 350px) { .discovery-controls { grid-template-columns: 1fr; } }
+
+/* Membership-scoped campus discussions. */
+.discussions-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: start; }
+.discussion-channels { display: grid; gap: 7px; position: sticky; top: 0; max-height: 70vh; overflow-y: auto; }
+.discussion-channel { display: flex; gap: 8px; align-items: center; min-height: 46px; text-align: left; padding: 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--text-soft); background: var(--surface); }
+.discussion-channel span { flex: 1; overflow-wrap: anywhere; }
+.discussion-channel strong { border-radius: 20px; padding: 3px 7px; background: var(--primary); color: white; font-size: 11px; }
+.discussion-channel.active { border-color: var(--mint); background: var(--mint-soft); color: var(--mint); }
+.discussion-conversation { min-width: 0; }
+.discussion-conversation h3 { display: flex; align-items: center; gap: 5px; overflow-wrap: anywhere; }
+.discussion-toolbar { display: flex; align-items: start; gap: 10px; }
+.discussion-toolbar .discovery-search { flex: 1; min-width: 0; }
+.discussion-toolbar .secondary-button { width: auto; }
+.discussion-toolbar .selected { border-color: var(--mint); color: var(--mint); }
+.discussion-messages { display: grid; gap: 14px; margin: 16px 0; }
+.discussion-message { min-width: 0; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.discussion-message.own-message { border-left: 3px solid var(--mint); }
+.discussion-message header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
+.discussion-message header > span, .discussion-message time { color: var(--muted); font-size: 11px; }
+.discussion-message time { margin-left: auto; }
+.discussion-pin { display: inline-flex; gap: 4px; align-items: center; }
+.discussion-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.6; }
+.discussion-message blockquote { margin: 12px 0; padding: 10px 12px; background: var(--mint-soft); border-left: 3px solid var(--mint); font-size: 12px; overflow-wrap: anywhere; }
+.discussion-message blockquote p { margin: 5px 0 0; }
+.discussion-message-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.reaction-button { min-height: 36px; padding: 6px 10px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 20px; }
+.reaction-button[aria-pressed="true"] { border-color: var(--mint); background: var(--mint-soft); }
+.discussion-message-actions .icon-button { width: 36px; height: 36px; margin-left: auto; }
+.discussion-composer { padding: 18px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 16px; }
+.discussion-send, .discussion-reply { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.discussion-send small, .discussion-reply small { color: var(--muted); font-size: 11px; }
+.discussion-send .primary-button { width: auto; }
+.discussion-reply { margin: 0 0 14px; padding: 10px; border-left: 3px solid var(--mint); background: var(--mint-soft); font-size: 12px; }
+.discussion-reply span { min-width: 0; }
+.discussion-reply small { display: block; overflow-wrap: anywhere; margin-top: 6px; }
+html[data-density="compact"] .discussion-message { padding: 10px 12px; }
+@media(max-width: 900px) {
+ .discussions-layout { grid-template-columns: 1fr; gap: 18px; }
+ .discussion-channels { position: static; max-height: 210px; }
+ .discussion-conversation .section-heading { flex-wrap: wrap; }
+ .discussion-send { align-items: start; flex-direction: column; }
+ .discussion-send .primary-button { width: 100%; }
+}
+
+.college-login-card { margin: 12px 0; }
+.auth-portal-picker button { flex: 1; min-height: 46px; }
+.local-login-form { margin-top: 24px; }
+.college-sign-in .soft-badge { display: inline-flex; align-items: center; gap: 8px; }
+.college-sign-in .auth-security { align-items: start; line-height: 1.6; }

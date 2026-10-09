@@ -1,3 +1,4 @@
+import { signIn } from './sign-in.js';
 import { expect, test } from '@playwright/test';
 
 test('upcoming events retain acknowledgments when the inbox is marked read', async ({ page, request }, testInfo) => {
@@ -12,7 +13,7 @@ test('upcoming events retain acknowledgments when the inbox is marked read', asy
   expect(response.status()).toBe(201);
   const noticeId = (await response.json()).circular.id;
   await page.goto('/student');
-  await page.getByRole('button', { name: /asha rao/i }).click();
+  await signIn(page, 'student');
   await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
   await expect(page.getByText(/marked as read\. Required acknowledgments/)).toBeVisible();
   const notice = (await (await page.request.get(`/api/circulars/${noticeId}`)).json()).circular;
