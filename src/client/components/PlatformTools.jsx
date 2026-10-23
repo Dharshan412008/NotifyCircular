@@ -34,7 +34,11 @@ export function PortalTools({ user }) {
   const results = useQuery({ queryKey: ['platform-search', user.id, search], queryFn: ({ signal }) => apiRequest(`/api/platform/search?q=${encodeURIComponent(search)}`, { signal }), enabled: searchOpen && Boolean(search) });
   const notifications = useQuery({ queryKey: ['platform-notifications', user.id], queryFn: () => apiRequest('/api/platform/notifications'), refetchInterval: 30_000 });
   const update = useMutation({ mutationFn: ({ path = '/api/platform/notifications/read', method = 'POST', body = {} }) => apiRequest(path, { method, body }), onSuccess: () => client.invalidateQueries({ queryKey: ['platform-notifications'] }) });
-  function openNotification(item) { update.mutate({ body: { id: item.id } }); setNotificationsOpen(false); navigate(item.href); }
+  function openNotification(item) {
+    update.mutate({ body: { id: item.id } }); setNotificationsOpen(false);
+    if (item.kind === 'app-update') window.location.assign('/');
+    else navigate(item.href);
+  }
   return <div className="platform-topbar-actions">
     <button className="icon-button command-trigger" aria-label="Search campus (Control K)" title="Search campus · Ctrl K" onClick={() => setSearchOpen(true)}><Search /><span className="command-hint">Search <kbd>⌘ K</kbd></span></button>
     <button className="icon-button notification-trigger" aria-label={`Notifications${notifications.data?.unread ? ` (${notifications.data.unread} unread)` : ''}`} onClick={() => setNotificationsOpen(true)}><Bell />{notifications.data?.unread > 0 && <span className="notification-count">{notifications.data.unread > 99 ? '99+' : notifications.data.unread}</span>}</button>

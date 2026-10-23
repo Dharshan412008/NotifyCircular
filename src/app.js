@@ -254,7 +254,13 @@ function createApplication(options = {}) {
       if (typeof info.buildId === 'string' && info.buildId.length <= 128) buildId = info.buildId;
     } catch { /* Development and older builds may not include release metadata. */ }
   }
-  app.get('/api/version', (_req, res) => res.json({ buildId }));
+  let releaseAnnouncement;
+  if (buildId && app.get('env') === 'production') {
+    releaseAnnouncement = require('./release-announcement').createReleaseAnnouncement(db, notificationService);
+    releaseAnnouncement.announce();
+    releaseAnnouncement.start();
+  }
+  app.get('/api/version', (_req, res) => res.json({ buildId, announcementId: releaseAnnouncement?.id || null }));
 
   app.get('/api/auth/me', (req, res) => {
     res.json({ user: req.user || null });
@@ -888,6 +894,7 @@ function createApplication(options = {}) {
     sessionMiddleware,
     notificationService,
     close() {
+      releaseAnnouncement?.close();
       circularTools.close();
       notificationService.close?.();
       if (db.open) db.close();

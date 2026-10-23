@@ -110,6 +110,10 @@ New student accounts require a full name, email, CampusRelay password, register 
 
 ## Application updates
 
-Every production build includes a unique release ID. Open apps check `/api/version` once a minute while visible, and on reconnect or returning to the tab. A new release offers **Reload app** and **Later**, so unfinished work is not discarded automatically. Installed apps fetch the current page when reopened online. Users on versions older than this update must refresh or reopen once to receive the update prompt feature.
+Every production build includes a unique release ID. Open apps check `/api/version` once a minute while visible, and on reconnect or returning to the tab. A new release opens an **Update available** screen with **Update**, **What’s new**, and **Later**. Updating shows an indeterminate loading screen while checking the server, then reloads the app. Offline failures offer a retry, so unfinished work is not discarded automatically. Installed apps fetch the current page when reopened online. Users on versions older than this update must refresh or reopen once to receive the update prompt feature.
 
 Railway updates should use the existing service and its persistent volume at `/app/data`; do not replace the service or delete its volume. Push to the connected GitHub branch to trigger deployment when autodeploy is enabled. Confirm the new deployment succeeds before announcing availability to users. GitHub source updates alone do not confirm a live release.
+
+### Existing-user update announcement
+
+The registration/profile release creates one persistent in-app update notification for each existing enabled account when the production build starts. It queues browser push for existing eligible subscriptions (respecting the current notification preference), with up to three attempts and no email blast. Duplicate restarts do not repeat the announcement. Disabled accounts, expired subscriptions and reassigned devices are excluded. Devices without push permission receive the notice inside CampusRelay when opened. Browser push delivery is subject to browser and OS support; it cannot silently replace a Play Store APK. A website-installed app loads the latest version when reopened or updated.

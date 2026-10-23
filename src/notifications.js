@@ -141,6 +141,23 @@ class NotificationService {
     }
   }
 
+  async sendAppUpdate(row, payload) {
+    if (!this.allowPush || this.disabled || this.closed) return 'pending';
+    try {
+      await this.webpush.sendNotification({ endpoint: row.endpoint, expirationTime: row.expiration_time || null,
+        keys: { p256dh: row.p256dh, auth: row.auth } }, JSON.stringify(payload),
+      { TTL: 24 * 60 * 60, urgency: 'normal', timeout: 10000 });
+      return 'sent';
+    } catch (error) {
+      if (this.closed) return 'pending';
+      if (error.statusCode === 404 || error.statusCode === 410) {
+        this.db.prepare('DELETE FROM push_subscriptions WHERE id=?').run(row.id);
+        return 'expired';
+      }
+      return 'pending';
+    }
+  }
+
   async sendEmail(recipient, circular) {
     const subject = String(circular.summary || 'College circular')
       .replace(/[\r\n]+/g, ' ')
