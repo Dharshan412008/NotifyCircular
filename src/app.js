@@ -258,13 +258,12 @@ function createApplication(options = {}) {
       if (typeof info.buildId === 'string' && info.buildId.length <= 128) buildId = info.buildId;
     } catch { /* Development and older builds may not include release metadata. */ }
   }
-  let releaseAnnouncement;
-  if (buildId && app.get('env') === 'production') {
-    releaseAnnouncement = require('./release-announcement').createReleaseAnnouncement(db, notificationService);
-    releaseAnnouncement.announce();
-    releaseAnnouncement.start();
+  // Release prompts are disabled; clear previously queued notices on upgrade.
+  db.prepare("UPDATE platform_notifications SET cleared_at=coalesce(cleared_at,?) WHERE kind='app-update'").run(new Date().toISOString());
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_release_push_jobs'").get()) {
+    db.prepare("UPDATE app_release_push_jobs SET status='cancelled' WHERE status='pending'").run();
   }
-  app.get('/api/version', (_req, res) => res.json({ buildId, announcementId: releaseAnnouncement?.id || null }));
+  app.get('/api/version', (_req, res) => res.json({ buildId, announcementId: null }));
 
   app.get('/api/auth/me', (req, res) => {
     res.json({ user: req.user || null });
@@ -901,7 +900,6 @@ function createApplication(options = {}) {
     sessionMiddleware,
     notificationService,
     close() {
-      releaseAnnouncement?.close();
       circularTools.close();
       notificationService.close?.();
       if (db.open) db.close();

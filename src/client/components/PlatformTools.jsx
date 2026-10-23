@@ -36,8 +36,7 @@ export function PortalTools({ user }) {
   const update = useMutation({ mutationFn: ({ path = '/api/platform/notifications/read', method = 'POST', body = {} }) => apiRequest(path, { method, body }), onSuccess: () => client.invalidateQueries({ queryKey: ['platform-notifications'] }) });
   function openNotification(item) {
     update.mutate({ body: { id: item.id } }); setNotificationsOpen(false);
-    if (item.kind === 'app-update') window.location.assign('/');
-    else navigate(item.href);
+    navigate(item.href);
   }
   return <div className="platform-topbar-actions">
     <button className="icon-button command-trigger" aria-label="Search campus (Control K)" title="Search campus · Ctrl K" onClick={() => setSearchOpen(true)}><Search /><span className="command-hint">Search <kbd>⌘ K</kbd></span></button>
