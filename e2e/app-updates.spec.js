@@ -12,7 +12,7 @@ test('offers an update screen, displays real loading state, and reloads the app'
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Update available', exact: true })).toBeVisible();
   await page.getByText('What’s new', { exact: true }).click();
-  await expect(page.getByText('Complete student and faculty profiles')).toBeVisible();
+  await expect(page.getByText('Year, department and section communities')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('update-available.png') });
   await page.getByRole('button', { name: 'Update', exact: true }).click();

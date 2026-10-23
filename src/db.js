@@ -383,6 +383,7 @@ function openDatabase(options = {}) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_campus_posts_topic ON campus_posts(topic, id)');
   enforcePushEndpointOwnership(db);
   require('./platform').migratePlatform(db);
+  require('./academics').migrateAcademics(db);
   require('./circular-tools-migration').migrateCircularTools(db);
   // Provision automatic audiences even when demo people/notices are disabled.
   const addGroup = db.prepare(`INSERT OR IGNORE INTO groups(slug,name,description,icon,kind,joinable,year,created_at)
@@ -393,6 +394,7 @@ function openDatabase(options = {}) {
     seedDatabase(db, options);
     if (env.NODE_ENV !== 'production') require('./admin-migration').seedAdmin(db, options);
   }
+  for (const student of db.prepare("SELECT id FROM users WHERE role='student'").all()) require('./academics').syncStudent(db, student.id);
   return db;
 }
 

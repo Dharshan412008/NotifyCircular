@@ -1,3 +1,4 @@
+import StudyMaterials, { AcademicCommunity } from './Academics.jsx';
 import { lazy, Suspense } from 'react';
 import { RouteLoading } from './RouteBoundary';
 import CreateGroupDialog from './CreateGroupDialog.tsx';
@@ -1131,13 +1132,14 @@ function MemberEditor({ group, open, onClose }) {
   );
 }
 
-function GroupDirectory({ groupsQuery }) {
+function GroupDirectory({ groupsQuery, user }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState(null);
   const groups = groupsQuery.data?.groups || [];
 
   return (
     <section className="tab-view" aria-labelledby="groups-heading">
+      <AcademicCommunity user={user} />
       <div className="section-heading">
         <div><p className="overline">Audience directory</p><h3 id="groups-heading">Groups & memberships</h3></div>
         <button className="round-add" type="button" aria-label="Create group" onClick={() => setCreateOpen(true)}><Plus /></button>
@@ -1155,7 +1157,7 @@ function GroupDirectory({ groupsQuery }) {
             </div>
             <div className="group-card-footer">
               <span>{group.kind === 'year' || group.kind === 'broadcast' ? 'Automatic membership' : `${group.memberCount ?? 0} student${group.memberCount === 1 ? '' : 's'}`}</span>
-              {MANAGEABLE_KINDS.has(group.kind) && (
+              {!group.academicLevel && MANAGEABLE_KINDS.has(group.kind) && (
                 <button className="inline-button" type="button" onClick={() => setActiveGroup(group)}>Manage <ArrowRight /></button>
               )}
             </div>
@@ -1233,7 +1235,8 @@ export default function FacultyPortal({ user, onLogout }) {
           <Route path="sent" element={<SentCirculars user={user} />} />
           <Route path="campus" element={<CampusFeed user={user} />} />
           <Route path="discussions" element={<Discussions user={user} />} />
-          <Route path="groups" element={<GroupDirectory groupsQuery={groupsQuery} />} />
+          <Route path="materials" element={<StudyMaterials user={user} />} />
+          <Route path="groups" element={<GroupDirectory groupsQuery={groupsQuery} user={user} />} />
           <Route path="account" element={<FacultyAccount user={user} onLogout={onLogout} />} />
           <Route path="*" element={<Navigate to="compose" replace />} />
         </Routes></Suspense>

@@ -222,7 +222,8 @@ describe('NotifyCircular API', () => {
     assert.equal(registered.body.user.year, 2);
 
     const memberships = await newStudent.get('/api/memberships').expect(200);
-    const slugs = memberships.body.memberships.map((group) => group.slug);
+    const slugs = memberships.body.memberships.filter(group => !group.academicLevel).map((group) => group.slug);
+    assert.equal(memberships.body.memberships.filter(group => group.academicLevel).length, 2);
     assert.deepEqual([...slugs].sort(), ['second-year', 'whole-college']);
     assert.deepEqual(
       [...memberships.body.groupIds].sort((a, b) => a - b),

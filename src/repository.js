@@ -26,6 +26,7 @@ function serializeGroup(row) {
     year: row.year === null || row.year === undefined ? null : Number(row.year),
     department: row.department || '',
     section: row.section || '',
+    academicLevel: row.academic_level || '',
     parentGroupId: row.parent_group_id === null || row.parent_group_id === undefined ? null : Number(row.parent_group_id),
   };
   if (row.is_member !== undefined) group.isMember = Boolean(row.is_member);
@@ -68,7 +69,7 @@ function listGroups(db, user) {
     `)
     .all({ userId: user?.id || -1, userRole: user?.role || '' });
 
-  return rows.map((row) => {
+  return rows.filter(row => user?.role !== 'student' || require('./academics').matchesProfile(db, user.id, row)).map((row) => {
     const group = serializeGroup(row);
     if (user?.role !== 'faculty') delete group.memberCount;
     return group;

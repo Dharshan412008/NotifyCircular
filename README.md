@@ -4,6 +4,8 @@ CampusRelay is a multi-user college circular system. Faculty send one circular t
 
 CampusRelay uses React, React Router, TanStack Query, Vite, Express, SQLite, bcrypt sessions, and Socket.IO. It preserves the original phone-shell interface while replacing manual DOM screen toggling with real routes.
 
+Academic communities follow Year → Department → Section. Assigned faculty can create subjects and share downloadable study materials. See [class setup and materials](docs/CLASS_MATERIALS.md) for administrator and staff instructions.
+
 ## Run it
 
 Requires Node.js 20.19 or newer.

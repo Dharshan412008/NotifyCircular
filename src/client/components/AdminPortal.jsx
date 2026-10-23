@@ -1,3 +1,4 @@
+import { AcademicAdministration } from './Academics.jsx';
 import CreateGroupDialog from './CreateGroupDialog.tsx';
 import { useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,7 +9,7 @@ import Modal from './Modal.jsx';
 import PortalThemeButton from './PortalThemeButton.jsx';
 
 const dateLabel = (value) => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-const manageable = (group) => ['custom', 'activity'].includes(group.kind);
+const manageable = (group) => !group.academic_level && ['custom', 'activity'].includes(group.kind);
 
 function ErrorMessage({ error }) {
   return error ? <p className="form-error" role="alert">{getErrorMessage(error)}</p> : null;
@@ -144,5 +145,5 @@ export default function AdminPortal({ user, onLogout }) {
   const location = useLocation();
   const client = useQueryClient();
   const nav = [['overview', 'Overview', Activity], ['users', 'Users', Users], ['groups', 'Groups', UsersRound], ['reports', 'Reports', Flag], ['system', 'System', Settings]];
-  return <section className="screen app-screen screen-active admin-screen" aria-label="Admin portal"><header className="app-topbar"><div><p className="overline"><ShieldCheck aria-hidden="true" /> Admin portal</p><h2>Care for your campus</h2></div><div className="portal-header-actions"><PortalThemeButton /><button className="icon-button" aria-label="Refresh administration" onClick={() => client.invalidateQueries({ queryKey: ['admin'] })}><RefreshCw /></button><button className="icon-button" aria-label="Go to home" onClick={() => navigate('/')}><House /></button></div></header><div className="view-scroll"><Routes><Route index element={<Navigate to="overview" replace />} /><Route path="overview" element={<Overview />} /><Route path="users" element={<UserDirectory user={user} />} /><Route path="groups" element={<GroupDirectory />} /><Route path="reports" element={<Reports />} /><Route path="system" element={<System user={user} onLogout={onLogout} />} /><Route path="*" element={<Navigate to="overview" replace />} /></Routes></div><nav className="bottom-nav" aria-label="Admin navigation">{nav.map(([path, label, Icon]) => <button key={path} className={location.pathname === `/admin/${path}` ? 'active' : ''} aria-current={location.pathname === `/admin/${path}` ? 'page' : undefined} onClick={() => navigate(`/admin/${path}`)}><Icon /><span>{label}</span></button>)}</nav></section>;
+  return <section className="screen app-screen screen-active admin-screen" aria-label="Admin portal"><header className="app-topbar"><div><p className="overline"><ShieldCheck aria-hidden="true" /> Admin portal</p><h2>Care for your campus</h2></div><div className="portal-header-actions"><PortalThemeButton /><button className="icon-button" aria-label="Refresh administration" onClick={() => client.invalidateQueries({ queryKey: ['admin'] })}><RefreshCw /></button><button className="icon-button" aria-label="Go to home" onClick={() => navigate('/')}><House /></button></div></header><div className="view-scroll"><Routes><Route index element={<Navigate to="overview" replace />} /><Route path="overview" element={<Overview />} /><Route path="users" element={<UserDirectory user={user} />} /><Route path="groups" element={<><AcademicAdministration /><GroupDirectory /></>} /><Route path="reports" element={<Reports />} /><Route path="system" element={<System user={user} onLogout={onLogout} />} /><Route path="*" element={<Navigate to="overview" replace />} /></Routes></div><nav className="bottom-nav" aria-label="Admin navigation">{nav.map(([path, label, Icon]) => <button key={path} className={location.pathname === `/admin/${path}` ? 'active' : ''} aria-current={location.pathname === `/admin/${path}` ? 'page' : undefined} onClick={() => navigate(`/admin/${path}`)}><Icon /><span>{label}</span></button>)}</nav></section>;
 }

@@ -27,8 +27,7 @@ it('creates faculty/admin groups with persisted options and exactly the chosen a
       assert.equal(group.section, 'a'); assert.equal(group.year, 1); assert.equal(group.department, 'computing');
       assert.equal(group.kind, 'activity'); assert.equal(group.joinable, false); assert.equal(group.icon, 'CS');
       assert.deepEqual(members(group.id), [asha.id]);
-      const chosen = (await agent.post(base).send({ ...payload, name: `${suffix} manual override`, autoAddMatches: false, memberStudentIds: [ravi.id], joinable: true, kind: 'custom' }).expect(201)).body.group;
-      assert.deepEqual(members(chosen.id), [ravi.id]); assert.equal(chosen.joinable, true);
+      await agent.post(base).send({ ...payload, name: `${suffix} wrong class`, autoAddMatches: false, memberStudentIds: [ravi.id], joinable: true, kind: 'custom' }).expect(400);
       await agent.post(base).send({ ...payload, name: `${suffix} bad section`, section: 'x'.repeat(31) }).expect(400);
     }
     app.db.prepare('UPDATE users SET disabled=1 WHERE id=?').run(ravi.id);

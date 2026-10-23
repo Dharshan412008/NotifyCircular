@@ -50,7 +50,7 @@ function adminRouter(db) {
     assert(row, 404, 'group_not_found', 'This group could not be found.');
     return row;
   };
-  const manageable = (group) => assert(['activity', 'custom'].includes(group.kind), 400, 'automatic_group', 'Automatic and faculty groups are managed by account roles and academic years.');
+  const manageable = (group) => assert(!group.academic_level && ['activity', 'custom'].includes(group.kind), 400, 'automatic_group', 'Automatic and faculty groups are managed by account roles and academic years.');
 
   router.get('/stats', (_req, res) => {
     const counts = db.prepare(`SELECT
@@ -119,6 +119,7 @@ function adminRouter(db) {
       if (role === 'student' && (target.role !== 'student' || target.year !== year)) assignAutomaticGroups(db, target.id, year);
       if (role !== 'student' && target.role === 'student') db.prepare('DELETE FROM student_group_memberships WHERE student_id = ?').run(target.id);
       if (disabled || role !== target.role) revokeSessions(db, target.id);
+      require('./academics').syncStudent(db, target.id);
       audit(db, { actorId: req.user.id, action: 'user.updated', resource: 'user', resourceId: target.id, metadata: { fields: Object.keys(body).filter((key) => ['name', 'email', 'role', 'year', 'disabled'].includes(key)), role, disabled } });
     })();
     if (disabled || role !== target.role) req.app.locals.disconnectUserSockets?.(target.id);
@@ -162,6 +163,7 @@ function adminRouter(db) {
     const group = groupById(req.params.id);
     manageable(group);
     const student = userById(req.params.userId);
+    assert(require('./academics').matchesProfile(db, student.id, group), 400, 'class_mismatch', 'The student profile does not match this group.');
     assert(student.role === 'student' && !student.disabled, 400, 'validation_error', 'Choose an enabled student account.');
     db.transaction(() => {
       db.prepare("INSERT OR IGNORE INTO student_group_memberships(student_id, group_id, source, joined_at) VALUES (?, ?, 'faculty', ?)").run(student.id, group.id, now());

@@ -3622,3 +3622,24 @@ dialog.release-dialog { width: min(460px, calc(100vw - 28px)); max-height: calc(
 .release-content[aria-busy="true"] { text-align: center; padding-bottom: 56px; }
 .release-content progress { width: 100%; margin-top: 20px; height: 6px; accent-color: var(--primary); }
 @media (prefers-reduced-motion: reduce) { .release-loader { animation: none; } }
+
+/* Academic communities and class materials */
+.academic-workspace {display:grid;gap:20px;min-width:0}
+.academic-panel {padding:22px;border:1px solid var(--line);border-radius:18px;margin-bottom:20px;min-width:0;overflow-wrap:anywhere}
+.academic-panel h4 {font-size:1.1rem;margin:0 0 12px}
+.academic-panel p {margin:10px 0 16px}
+.academic-year {padding:14px 0;border-top:1px solid var(--line)}
+.academic-year summary,.academic-department summary {cursor:pointer;font-weight:700;padding:8px}
+.academic-department {margin:8px 0 0 20px}
+.academic-sections {display:flex;gap:12px;flex-wrap:wrap;padding:12px}
+.academic-sections a {display:grid;gap:6px;padding:14px 18px;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:inherit}
+.academic-sections small,.academic-material small,.academic-staff small {display:block;opacity:.75;font-size:.82rem;margin-top:5px}
+.academic-field {display:grid;gap:8px;margin:14px 0;font-weight:600;min-width:0}
+.academic-field input,.academic-field select {width:100%;min-width:0;padding:12px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface, #202338);color:inherit;font:inherit}
+.academic-field option {background:var(--surface);color:var(--text)}
+.academic-editor-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.academic-material {display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
+.academic-material>div {min-width:0}
+.academic-staff {display:flex;align-items:center;gap:12px;margin:16px 0}
+.academic-staff input {width:20px;height:20px}
+@media(max-width:640px){.academic-panel{padding:16px}.academic-editor-grid{grid-template-columns:1fr}.academic-material{align-items:flex-start;flex-direction:column}.academic-panel .section-heading{flex-wrap:wrap;gap:12px}}

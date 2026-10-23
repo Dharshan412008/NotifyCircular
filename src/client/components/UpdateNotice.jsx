@@ -65,7 +65,7 @@ export default function UpdateNotice({ buildId = import.meta.env.VITE_APP_BUILD_
         <h2 id="release-title">Update available</h2>
         <p>Get the latest CampusRelay improvements on this device.</p>
         <div className="release-app"><img src="/icon.svg" alt="" /><div><strong>CampusRelay</strong><small>College circulars & campus conversations</small></div></div>
-        <details className="release-details"><summary>What’s new</summary><ul><li>Complete student and faculty profiles</li><li>Faculty demo and mobile improvements</li><li>App update notifications</li></ul></details>
+        <details className="release-details"><summary>What’s new</summary><ul><li>Year, department and section communities</li><li>Class subjects and downloadable study materials</li><li>Uploads restricted to assigned staff</li></ul></details>
         <p className="release-save-note">Save any unfinished work before updating. The app will reload.</p>
         {error && <p className="form-error" role="alert">{error}</p>}
         <div className="release-actions"><button className="secondary-button" onClick={() => setDismissed(true)}>Later</button><button className="primary-button" onClick={update}>{error ? 'Retry update' : 'Update'}</button></div>

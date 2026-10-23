@@ -1,3 +1,4 @@
+import StudyMaterials, { AcademicCommunity } from './Academics.jsx';
 import { lazy, Suspense } from 'react';
 import { RouteLoading } from './RouteBoundary';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -504,6 +505,7 @@ function MembershipView({ user }) {
     const membershipIds = new Set((membershipsQuery.data || []).map(Number));
     return (groupsQuery.data || []).filter((group) => (
       group.joinable !== true
+      && !group.academicLevel
       && (group.isMember === true || membershipIds.has(Number(group.id)))
     ));
   }, [groupsQuery.data, membershipsQuery.data]);
@@ -560,6 +562,7 @@ function MembershipView({ user }) {
 
   return (
     <section aria-labelledby="studentGroupsTitle">
+      <AcademicCommunity user={user} />
       <div className="section-heading">
         <div>
           <p className="overline">Your audience</p>
@@ -567,7 +570,7 @@ function MembershipView({ user }) {
         </div>
       </div>
       <p className="view-intro">
-        Your study year is automatic. Choose any activity groups you want to follow.
+        Your year, department and section follow your saved profile. Choose related activity groups below.
       </p>
 
       {isLoading ? <LoadingCards label="Loading group memberships" /> : null}
@@ -1042,6 +1045,7 @@ export default function StudentPortal({ user, onLogout }) {
     <Suspense fallback={<RouteLoading />}><Routes>
       <Route element={<StudentShell user={user} />}>
         <Route index element={<InboxView user={user} />} />
+        <Route path="materials" element={<StudyMaterials user={user} />} />
         <Route path="groups" element={<MembershipView user={user} />} />
         <Route path="campus" element={<CampusFeed user={user} />} />
           <Route path="discussions" element={<Discussions user={user} />} />

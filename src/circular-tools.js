@@ -465,4 +465,4 @@ function createCircularTools(options) {
   };
 }
 
-module.exports = { createCircularTools, getCircularExtras, normalizeMetadata, storeCircularExtras, CATEGORIES, PRIORITIES, MAX_ATTACHMENT_BYTES };
+module.exports = { validateAttachment, createCircularTools, getCircularExtras, normalizeMetadata, storeCircularExtras, CATEGORIES, PRIORITIES, MAX_ATTACHMENT_BYTES };

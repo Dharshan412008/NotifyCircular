@@ -176,7 +176,7 @@ function createApplication(options = {}) {
     next();
   });
   const jsonParser = express.json({ limit: '64kb', type: ['application/json', 'application/*+json'] });
-  app.use((req, res, next) => req.path === '/api/posts' || req.path.startsWith('/api/posts/') || req.path === '/api/circular-tools/attachments' ? next() : jsonParser(req, res, next));
+  app.use((req, res, next) => req.path.startsWith('/api/academics/subjects/') && req.path.endsWith('/materials') || req.path === '/api/posts' || req.path.startsWith('/api/posts/') || req.path === '/api/circular-tools/attachments' ? next() : jsonParser(req, res, next));
 
   let sessionSecret = options.sessionSecret || env.SESSION_SECRET || getSetting(db, 'session_secret');
   if (!sessionSecret) {
@@ -211,6 +211,10 @@ function createApplication(options = {}) {
     }
     next();
   });
+  app.use((req, _res, next) => {
+    try { if (req.user?.role === 'student') require('./academics').syncStudent(db, req.user.id); next(); } catch (error) { next(error); }
+  });
+  app.use('/api/academics', require('./academics').academicsRouter(db));
   app.use('/api/discussions', require('./discussions').discussionsRouter(db));
   app.use('/api/posts', require('./campus').campusRouter(db));
   app.use('/api/admin', require('./admin').adminRouter(db));
@@ -367,6 +371,7 @@ function createApplication(options = {}) {
         return id;
       })();
 
+      require('./academics').syncStudent(db, userId);
       const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
       if (authSettings.collegePasswordAuth) return res.status(201).json(await emailVerification.begin(req, user));
       await regenerateSession(req);
@@ -429,11 +434,12 @@ function createApplication(options = {}) {
       const row = db.prepare('SELECT * FROM groups WHERE id = ?').get(groupId);
       if (!row) throw new ApiError(404, 'group_not_found', 'Group was not found.');
       assert(
-        row.joinable && ['activity', 'custom'].includes(row.kind),
+        row.joinable && !row.academic_level && ['activity', 'custom'].includes(row.kind),
         403,
         'membership_locked',
         'This membership is assigned automatically and cannot be changed.',
       );
+      assert(require('./academics').matchesProfile(db, req.user.id, row), 403, 'class_forbidden', 'This group is for another academic class.');
       if (joined) {
         db.prepare(`
           INSERT OR IGNORE INTO student_group_memberships
@@ -458,7 +464,7 @@ function createApplication(options = {}) {
       const groupIds = cleanIdArray(body.groupIds, 'groupIds', { max: 50 });
       const groups = ensureUniqueExistingGroups(db, groupIds);
       assert(
-        groups.every((group) => group.joinable && ['activity', 'custom'].includes(group.kind)),
+        groups.every((group) => group.joinable && ['activity', 'custom'].includes(group.kind) && require('./academics').matchesProfile(db, req.user.id, group)),
         400,
         'validation_error',
         'groupIds may only contain optional activity groups.',
@@ -517,13 +523,14 @@ function createApplication(options = {}) {
       const row = db.prepare('SELECT * FROM groups WHERE id = ?').get(groupId);
       if (!row) throw new ApiError(404, 'group_not_found', 'Group was not found.');
       assert(
-        ['activity', 'custom'].includes(row.kind),
+        !row.academic_level && ['activity', 'custom'].includes(row.kind),
         403,
         'membership_locked',
         'Automatic year, role, and broadcast memberships cannot be replaced.',
       );
       const body = requireObject(req.body);
       const studentIds = cleanIdArray(body.studentIds, 'studentIds', { max: 500 });
+      assert(studentIds.every(id => require('./academics').matchesProfile(db, id, row)), 400, 'class_mismatch', 'Choose students whose profiles match this group.');
       if (studentIds.length) {
         const placeholders = studentIds.map(() => '?').join(',');
         const count = db

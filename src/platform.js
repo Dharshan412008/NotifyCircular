@@ -177,6 +177,7 @@ function platformRouter(db) {
       db.prepare('UPDATE users SET name=? WHERE id=?').run(p.name, req.user.id);
       db.prepare(`INSERT INTO user_profiles(user_id,register_number,department,program,section,academic_year,bio,phone,employee_id,designation) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET register_number=excluded.register_number,department=excluded.department,program=excluded.program,section=excluded.section,academic_year=excluded.academic_year,bio=excluded.bio,phone=excluded.phone,employee_id=excluded.employee_id,designation=excluded.designation`).run(req.user.id, p.register_number, p.department, p.program, p.section, p.academic_year, p.bio, p.phone ?? previous.phone ?? '', p.employee_id ?? previous.employee_id ?? '', p.designation ?? previous.designation ?? '');
     })();
+    require('./academics').syncStudent(db, req.user.id);
     res.json({ ok: true });
   });
   router.post('/audience-preview', requireRole('faculty'), (req, res) => {

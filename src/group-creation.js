@@ -33,6 +33,7 @@ function createGroup(db, user, input) {
     if (parentGroupId) assert(db.prepare("SELECT 1 FROM groups WHERE id=? AND kind!='role'").get(parentGroupId), 400, 'validation_error', 'Choose an available student parent group.');
     const student = db.prepare("SELECT 1 FROM users WHERE id=? AND role='student' AND disabled=0");
     assert(ids.every((id) => student.get(id)), 400, 'validation_error', 'Choose enabled student accounts.');
+    assert(ids.every(id => require('./academics').matchesProfile(db, id, { year, department, section, parent_group_id: parentGroupId })), 400, 'class_mismatch', 'Choose students whose profile matches this group and its parent community.');
     const selected = new Set(ids);
     // No filters means manual selection only, never an implicit whole-college group.
     if (autoAddMatches && (year || department || section || parentGroupId)) {
