@@ -16,7 +16,6 @@ import {
   Users,
   Sparkles,
   Search,
-  House,
 } from 'lucide-react';
 import {
   Navigate,
@@ -266,7 +265,7 @@ function StudentShell({ user }) {
           <p className="overline">Student portal</p>
           <h2 id="studentHeading">Hello, {firstName(user.name)}</h2>
         </div>
-        <div className="portal-header-actions"><PortalTools user={user} /><PortalThemeButton /><button className="icon-button" aria-label="Go to home" onClick={() => navigate('/student')}><House /></button>
+        <div className="portal-header-actions"><PortalTools user={user} /><PortalThemeButton />
         <button
           className="avatar-button"
           type="button"

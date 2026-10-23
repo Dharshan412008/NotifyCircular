@@ -13,7 +13,6 @@ import {
   Download,
   FilePenLine,
   Inbox,
-  House,
   LogOut,
   Plus,
   RefreshCw,
@@ -1215,7 +1214,7 @@ export default function FacultyPortal({ user, onLogout }) {
     <section className="screen app-screen screen-active" aria-label="Faculty portal">
       <header className="app-topbar">
         <div><p className="overline">Faculty portal</p><h2>Hello, {greetingName(user.name)}</h2></div>
-        <div className="portal-header-actions"><PortalTools user={user} /><PortalThemeButton /><button className="icon-button" aria-label="Go to home" onClick={() => navigate('/faculty/compose')}><House /></button>
+        <div className="portal-header-actions"><PortalTools user={user} /><PortalThemeButton />
         <button className="avatar-button" type="button" aria-label="Open account" onClick={() => navigate('/faculty/account')}>
           <span className="avatar">{initials(user.name)}</span><span className="online-dot" />
         </button>
