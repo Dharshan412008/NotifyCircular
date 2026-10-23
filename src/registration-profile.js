@@ -13,7 +13,7 @@ function registrationProfile(value, role) {
   assert(!profile.phone || /^\+?[0-9 ()-]{7,25}$/.test(profile.phone) && profile.phone.replace(/\D/g, '').length >= 7, 400, 'validation_error', 'Enter a valid phone number or leave it blank.', { field: 'phone' });
   if (role === 'student') {
     profile.register_number = required('register_number', 50);
-    profile.program = required('program', 80);
+    profile.program = cleanString(body.program ?? '', 'program', { max: 80 });
     profile.section = required('section', 30);
     profile.academic_year = required('academic_year', 30);
   } else {

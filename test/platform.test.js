@@ -36,6 +36,9 @@ it('persists validated profiles and computes a deduplicated filtered audience', 
   const saved = (await asha.get('/api/platform/profile').expect(200)).body.profile;
   assert.equal(saved.department, 'Computing');
   assert.equal(saved.role, 'student');
+  const withoutProgram = { ...profile }; delete withoutProgram.program;
+  await asha.put('/api/platform/profile').send(withoutProgram).expect(200);
+  assert.equal((await asha.get('/api/platform/profile')).body.profile.program, 'BTech');
   await asha.put('/api/platform/profile').send({ ...profile, bio: 'x'.repeat(501) }).expect(400);
   const groupIds = context.db.prepare("SELECT id FROM groups WHERE slug IN ('first-year','whole-college')").all().map((row) => row.id);
   const audience = (await faculty.post('/api/platform/audience-preview').send({ groupIds, department: 'Computing', year: 1, section: 'A' }).expect(200)).body;

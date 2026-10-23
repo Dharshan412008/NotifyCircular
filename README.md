@@ -107,7 +107,7 @@ Faculty submit group proposals and administrators review them before creation. G
 
 ## Registration details
 
-New student accounts require a full name, email, CampusRelay password, register number/student ID, department, degree/program, year of study, section, and academic session. New faculty accounts require a full name, email, password, employee/faculty ID, department, and designation. Phone contact is optional for both roles. Registration confirms the password and saves the details atomically with the account. Users can view and update their details under Profile & preferences. Existing accounts and profiles are preserved.
+New student accounts require a full name, email, CampusRelay password, register number/student ID, department, year of study, section, and academic session. New faculty accounts require a full name, email, password, employee/faculty ID, department, and designation. Phone contact is optional for both roles. Registration confirms the password and saves the details atomically with the account. Users can view and update their details under Profile & preferences. Existing accounts and profiles are preserved.
 
 ## Application updates
 

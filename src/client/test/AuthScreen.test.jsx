@@ -45,8 +45,9 @@ it('registers a student with a college email and rejects lookalike domains', asy
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: 'New student? Create an account' }));
   expect(screen.queryByRole('button', { name: 'Sign in with Google' })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(/Degree|Program/)).not.toBeInTheDocument();
   await user.type(screen.getByLabelText('Full name'), 'College Student');
-  for (const [label, value] of [['Department', 'Computer Science'], ['Register number / Student ID', 'ST101'], ['Degree / Program', 'BE'], ['Section', 'A'], ['Academic session (e.g. 2026–2027)', '2026-2027'], ['Confirm password', 'Secure123!']]) await user.type(screen.getByLabelText(label), value);
+  for (const [label, value] of [['Department', 'Computer Science'], ['Register number / Student ID', 'ST101'], ['Section', 'A'], ['Academic session (e.g. 2026–2027)', '2026-2027'], ['Confirm password', 'Secure123!']]) await user.type(screen.getByLabelText(label), value);
   await user.type(screen.getByLabelText('Email address'), 'student@srishakthi.ac.in.attacker.com');
   await user.type(screen.getByLabelText('Password'), 'Secure123!');
   await user.click(screen.getByRole('button', { name: 'Create student account' }));

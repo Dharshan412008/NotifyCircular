@@ -207,28 +207,20 @@ function LoadingCards({ count = 2 }) {
   return <>{Array.from({ length: count }, (_, index) => <div className="skeleton-card" key={index} />)}</>;
 }
 
-function currentAcademicYear() {
-  const now = new Date();
-  const startYear = now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
-  return `${startYear}-${String(startYear + 1).slice(-2)}`;
-}
-
 function AudiencePicker({ open, groups, selectedIds, onChange, onClose }) {
   const [search, setSearch] = useState('');
   const [year, setYear] = useState('');
   const [department, setDepartment] = useState('');
-  const [program, setProgram] = useState('');
   const [section, setSection] = useState('');
-  const [academicYear, setAcademicYear] = useState(currentAcademicYear);
+  const [academicYear, setAcademicYear] = useState('');
   const previewQuery = useQuery({
-    queryKey: ['audience-preview', [...selectedIds].sort(), year, department, program, section, academicYear],
-    queryFn: () => apiRequest('/api/audience-preview', {
+    queryKey: ['audience-preview', [...selectedIds].sort(), year, department, section, academicYear],
+    queryFn: () => apiRequest('/api/platform/audience-preview', {
       method: 'POST',
       body: {
         groupIds: [...selectedIds],
         year: year ? Number(year) : undefined,
         department,
-        program,
         section,
         academicYear,
       },
@@ -259,13 +251,14 @@ function AudiencePicker({ open, groups, selectedIds, onChange, onClose }) {
       <div className="audience-filters" aria-label="Audience filters">
         <label className="field"><span>Year</span><select value={year} onChange={(event) => setYear(event.target.value)}><option value="">All years</option><option value="1">1st year</option><option value="2">2nd year</option><option value="3">3rd year</option><option value="4">Final year</option></select></label>
         <label className="field"><span>Department</span><input value={department} onChange={(event) => setDepartment(event.target.value)} placeholder="Mechanical / EEE / IT" /></label>
-        <label className="field"><span>Class / program</span><input value={program} onChange={(event) => setProgram(event.target.value)} placeholder="B.Tech / BCA" /></label>
         <label className="field"><span>Section</span><input value={section} onChange={(event) => setSection(event.target.value)} placeholder="A / B" /></label>
         <label className="field"><span>Academic year</span><input value={academicYear} onChange={(event) => setAcademicYear(event.target.value)} placeholder="2026-27" /></label>
       </div>
       <p className="audience-preview" role="status">
-        {selectedIds.size === 0 ? 'Select groups to preview recipients.' : previewQuery.isPending ? 'Updating recipients...' : `${previewQuery.data?.count ?? 0} matching students`}
+        {selectedIds.size === 0 ? 'Select groups to preview recipients.' : previewQuery.isPending ? 'Updating recipients...' : previewQuery.isError ? 'Recipient preview unavailable.' : `${previewQuery.data?.count ?? 0} matching students`}
       </p>
+      {previewQuery.isError && <p className="form-error" role="alert">{previewQuery.error.message}</p>}
+      <p className="view-intro">Filters preview matching students. Sending uses the full membership of your selected groups.</p>
       <div className="option-list">
         {visible.map((group) => (
             <label className="option-row" key={group.id}>

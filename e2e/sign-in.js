@@ -9,7 +9,6 @@ export async function fillRegistrationDetails(page, role, password) {
   await page.getByLabel('Department', { exact: true }).fill('Computer Science');
   if (role === 'student') {
     await page.getByLabel('Register number / Student ID').fill('ST101');
-    await page.getByLabel('Degree / Program').fill('BE');
     await page.getByLabel('Section', { exact: true }).fill('A');
     await page.getByLabel('Academic session (e.g. 2026–2027)').fill('2026-2027');
   } else {

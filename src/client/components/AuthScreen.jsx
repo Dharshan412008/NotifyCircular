@@ -18,7 +18,7 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
   const [params] = useSearchParams();
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [registering, setRegistering] = useState(false), [name, setName] = useState(''), [year, setYear] = useState('1');
-  const [profile, setProfile] = useState({ department: '', register_number: '', program: '', section: '', academic_year: '', employee_id: '', designation: '', phone: '' });
+  const [profile, setProfile] = useState({ department: '', register_number: '', section: '', academic_year: '', employee_id: '', designation: '', phone: '' });
   const [confirmation, setConfirmation] = useState('');
   const [verification, setVerification] = useState(null), [code, setCode] = useState(''), [notice, setNotice] = useState('');
   const settings = useQuery({ queryKey: ['auth-options'], queryFn: () => apiRequest('/api/auth/options'), staleTime: 60000 });
@@ -73,7 +73,7 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
             setError('');
             setPassword('');
             setRegistering(false);
-            setProfile({ department: '', register_number: '', program: '', section: '', academic_year: '', employee_id: '', designation: '', phone: '' });
+            setProfile({ department: '', register_number: '', section: '', academic_year: '', employee_id: '', designation: '', phone: '' });
             setConfirmation('');
             setVerification(null);
             setNotice('');
@@ -104,7 +104,7 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
           {registering && canRegister && <><label className="field"><span>Full name</span><input required minLength={2} maxLength={100} autoComplete="name" value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /></label>{role === 'student' && <label className="field"><span>Year of study</span><select value={year} disabled={busy} onChange={(event) => setYear(event.target.value)}>{[1, 2, 3, 4].map((value) => <option key={value} value={value}>Year {value}</option>)}</select></label>}</>}
           {registering && canRegister && <>
             <h4>{role === 'student' ? 'Student details' : 'Faculty details'}</h4>
-            {(role === 'student' ? [['register_number', 'Register number / Student ID', 50], ['department', 'Department', 80], ['program', 'Degree / Program', 80], ['section', 'Section', 30], ['academic_year', 'Academic session (e.g. 2026–2027)', 30]] : [['employee_id', 'Employee / Faculty ID', 50], ['department', 'Department', 80], ['designation', 'Designation', 80]]).map(([key, text, max]) => <label className="field" key={key}><span>{text}</span><input required maxLength={max} value={profile[key]} disabled={busy} onChange={(event) => setProfile({ ...profile, [key]: event.target.value })} /></label>)}
+            {(role === 'student' ? [['register_number', 'Register number / Student ID', 50], ['department', 'Department', 80], ['section', 'Section', 30], ['academic_year', 'Academic session (e.g. 2026–2027)', 30]] : [['employee_id', 'Employee / Faculty ID', 50], ['department', 'Department', 80], ['designation', 'Designation', 80]]).map(([key, text, max]) => <label className="field" key={key}><span>{text}</span><input required maxLength={max} value={profile[key]} disabled={busy} onChange={(event) => setProfile({ ...profile, [key]: event.target.value })} /></label>)}
             <label className="field"><span>Phone number (optional)</span><input type="tel" autoComplete="tel" maxLength={25} value={profile.phone} disabled={busy} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} /></label>
           </>}
           <label className="field"><span>Email address</span><input type="email" autoComplete="username" placeholder={settings.data.collegePasswordAuth ? "yourname@srishakthi.ac.in" : "yourname@gmail.com"} required value={email} disabled={busy} onChange={(event) => setEmail(event.target.value)} /></label>

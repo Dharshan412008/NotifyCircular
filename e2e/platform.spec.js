@@ -33,6 +33,11 @@ test('opens the dashboards, studio, profile, and administration', async ({ page 
   await page.goto('/student/overview');
   await expect(page).toHaveURL(/\/student$/);
   await expect(page.getByRole('button', { name: 'Overview', exact: true })).toHaveCount(0);
+  await page.goto('/student/settings');
+  await expect(page.getByLabel('Program', { exact: true })).toHaveCount(0);
+  await page.getByLabel('Department', { exact: true }).fill('Computer Science');
+  await page.getByRole('button', { name: 'Save profile', exact: true }).click();
+  await expect(page.getByText('Profile saved.', { exact: true })).toBeVisible();
   await page.request.post('/api/auth/logout');
   await page.goto('/admin');
   await signIn(page, 'admin');

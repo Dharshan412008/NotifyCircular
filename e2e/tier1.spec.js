@@ -94,6 +94,8 @@ test('routes a live circular only to the targeted student and records it as read
     await expect(facultyPage.locator('.smart-title small')).toContainText(/audience suggestion/);
     await facultyPage.getByRole('button', { name: 'Add group' }).click();
     await facultyPage.getByRole('checkbox', { name: /sports group/i }).check();
+    await expect(facultyPage.getByText('1 matching students', { exact: true })).toBeVisible();
+    await expect(facultyPage.getByLabel('Class / program', { exact: true })).toHaveCount(0);
     await facultyPage.getByRole('button', { name: /use 1 group/i }).click();
     await facultyPage.getByRole('button', { name: /review & send/i }).click();
     await facultyPage.getByRole('button', { name: /^send circular/i }).click();
