@@ -38,7 +38,6 @@ import Modal from './Modal.jsx';
 import CampusFeed from './CampusFeed.jsx';
 import PortalThemeButton from './PortalThemeButton.jsx';
 const Discussions = lazy(() => import('./Discussions.tsx'));
-const Overview = lazy(() => import('./Overview.jsx'));
 const Analytics = lazy(() => import('./Analytics.tsx'));
 const CircularWorkbench = lazy(() => import('./CircularWorkbench.jsx'));
 import PortalNavigation from './PortalNavigation.jsx';
@@ -1216,7 +1215,7 @@ export default function FacultyPortal({ user, onLogout }) {
     <section className="screen app-screen screen-active" aria-label="Faculty portal">
       <header className="app-topbar">
         <div><p className="overline">Faculty portal</p><h2>Hello, {greetingName(user.name)}</h2></div>
-        <div className="portal-header-actions"><PortalTools user={user} /><PortalThemeButton /><button className="icon-button" aria-label="Go to home" onClick={() => navigate('/')}><House /></button>
+        <div className="portal-header-actions"><PortalTools user={user} /><PortalThemeButton /><button className="icon-button" aria-label="Go to home" onClick={() => navigate('/faculty/compose')}><House /></button>
         <button className="avatar-button" type="button" aria-label="Open account" onClick={() => navigate('/faculty/account')}>
           <span className="avatar">{initials(user.name)}</span><span className="online-dot" />
         </button>
@@ -1226,7 +1225,7 @@ export default function FacultyPortal({ user, onLogout }) {
         <Suspense fallback={<RouteLoading />}><Routes>
           <Route index element={<Navigate to="compose" replace />} />
           <Route path="compose" element={<CircularComposer groupsQuery={groupsQuery} />} />
-          <Route path="overview" element={<Overview user={user} />} />
+          <Route path="overview" element={<Navigate to="/faculty/compose" replace />} />
           <Route path="workbench" element={<CircularWorkbench user={user} />} />
           <Route path="events" element={<CampusCalendar user={user} />} />
           <Route path="analytics" element={<Analytics user={user} />} />

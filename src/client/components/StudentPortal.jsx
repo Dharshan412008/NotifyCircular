@@ -38,7 +38,6 @@ import { apiRequest } from '../api.js';
 import CampusFeed from './CampusFeed.jsx';
 import PortalThemeButton from './PortalThemeButton.jsx';
 const Discussions = lazy(() => import('./Discussions.tsx'));
-const Overview = lazy(() => import('./Overview.jsx'));
 const EventCheckIn = lazy(() => import('./CircularWorkbench.jsx').then((module) => ({ default: module.EventCheckIn })));
 import PortalNavigation from './PortalNavigation.jsx';
 import EventCalendar from './EventCalendar.jsx';
@@ -267,7 +266,7 @@ function StudentShell({ user }) {
           <p className="overline">Student portal</p>
           <h2 id="studentHeading">Hello, {firstName(user.name)}</h2>
         </div>
-        <div className="portal-header-actions"><PortalTools user={user} /><PortalThemeButton /><button className="icon-button" aria-label="Go to home" onClick={() => navigate('/')}><House /></button>
+        <div className="portal-header-actions"><PortalTools user={user} /><PortalThemeButton /><button className="icon-button" aria-label="Go to home" onClick={() => navigate('/student')}><House /></button>
         <button
           className="avatar-button"
           type="button"
@@ -1050,7 +1049,7 @@ export default function StudentPortal({ user, onLogout }) {
         <Route path="campus" element={<CampusFeed user={user} />} />
           <Route path="discussions" element={<Discussions user={user} />} />
         <Route path="events" element={<EventsView user={user} />} />
-        <Route path="overview" element={<Overview user={user} />} />
+        <Route path="overview" element={<Navigate to="/student" replace />} />
         <Route path="saved" element={<SavedCirculars user={user} />} />
         <Route path="settings" element={<AccountSettings user={user} />} />
         <Route path="check-in" element={<EventCheckIn user={user} />} />
