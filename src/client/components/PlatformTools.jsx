@@ -55,7 +55,7 @@ export function PortalTools({ user }) {
       {notifications.isPending && <p role="status">Loading updates…</p>}
       {notifications.data?.notifications?.map((item) => <button className={`notification-item${item.readAt ? '' : ' is-unread'}`} key={item.id} onClick={() => openNotification(item)}><Bell /><span><strong>{item.title}</strong><p>{item.message}</p><small>{dateLabel(item.createdAt)}</small></span></button>)}
       {notifications.isSuccess && !notifications.data?.notifications?.length && <div className="empty-state"><Bell /><h4>You’re all caught up</h4><p>New notices and campus reactions appear here.</p></div>}
-      <button className="secondary-button" onClick={() => { setNotificationsOpen(false); navigate(`/${user.role}/settings`); }}>Notification preferences</button>
+      <button className="secondary-button" onClick={() => { setNotificationsOpen(false); navigate(`/${user.role}/settings`); }}>Account settings</button>
     </Modal>
   </div>;
 }
@@ -71,19 +71,9 @@ function ProfileForm({ profile, user }) {
     <button className="primary-button" disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Save profile'}</button>
   </form>;
 }
-function PreferencesForm({ preferences: initial }) {
-  const [preferences, setPreferences] = useState(initial);
-  const mutation = useMutation({ mutationFn: () => apiRequest('/api/platform/preferences', { method: 'PUT', body: preferences }) });
-  return <form className="form-stack preference-list" onSubmit={(event) => { event.preventDefault(); mutation.mutate(); }}><h4>Choose your notifications</h4>
-    {[['circular', 'Official circulars'], ['event', 'Upcoming events and deadlines'], ['social', 'Reactions and comments on your posts'], ['email', 'Email updates']].map(([key, label]) => <label className="preference-row" key={key}><span>{label}</span><input type="checkbox" checked={preferences[key]} onChange={(event) => { mutation.reset(); setPreferences({ ...preferences, [key]: event.target.checked }); }} /></label>)}
-    <label className="field"><span>Email frequency</span><select value={preferences.digest} disabled={!preferences.email} onChange={(event) => { mutation.reset(); setPreferences({ ...preferences, digest: event.target.value }); }}><option value="instant">As notices arrive</option><option value="daily">Daily digest</option></select></label>
-    <Failure error={mutation.error} />{mutation.isSuccess && <p className="form-success" role="status">Preferences saved.</p>}<button className="secondary-button" disabled={mutation.isPending}>Save preferences</button>
-  </form>;
-}
 export function AccountSettings({ user }) {
   const query = useQuery({ queryKey: ['profile', user.id], queryFn: () => apiRequest('/api/platform/profile') });
-  const prefs = useQuery({ queryKey: ['preferences', user.id], queryFn: () => apiRequest('/api/platform/preferences') });
-  return <section className="tab-view"><div className="section-heading"><div><p className="overline">Make it yours</p><h3>Profile & preferences</h3></div></div><div className="settings-card"><ThemePreference /></div><div className="settings-card"><DisplayPreferences /></div><Failure error={query.error || prefs.error} />{query.isPending && <p role="status">Loading profile…</p>}{query.data && <div className="settings-card"><ProfileForm profile={query.data.profile} user={user} /></div>}{prefs.data && <div className="settings-card"><PreferencesForm preferences={prefs.data.preferences} /></div>}</section>;
+  return <section className="tab-view"><div className="section-heading"><div><p className="overline">Make it yours</p><h3>Profile & preferences</h3></div></div><div className="settings-card"><ThemePreference /></div><div className="settings-card"><DisplayPreferences /></div><Failure error={query.error} />{query.isPending && <p role="status">Loading profile…</p>}{query.data && <div className="settings-card"><ProfileForm profile={query.data.profile} user={user} /></div>}</section>;
 }
 export function SavedCirculars({ user }) {
   const navigate = useNavigate();
