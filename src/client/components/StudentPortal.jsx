@@ -247,6 +247,18 @@ function StudentShell({ user }) {
     navigate(view === 'inbox' ? '/student' : `/student/${view}`);
   };
 
+  useEffect(() => {
+    if (import.meta.env?.MODE !== 'test' && typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'default' && typeof window.Notification.requestPermission === 'function') {
+      const autoPrompt = () => {
+        try {
+          window.Notification.requestPermission().catch(() => {});
+        } catch {}
+      };
+      window.addEventListener('click', autoPrompt, { once: true });
+      return () => window.removeEventListener('click', autoPrompt);
+    }
+  }, []);
+
   return (
     <section className="screen app-screen screen-active" aria-labelledby="studentHeading">
       <header className="app-topbar">

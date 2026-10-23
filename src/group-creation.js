@@ -20,7 +20,7 @@ function createGroup(db, user, input) {
   const icon = cleanString(body.icon ?? 'CR', 'icon', { min: 1, max: 16 });
   const kind = body.kind ?? 'custom';
   assert(['custom', 'activity'].includes(kind), 400, 'validation_error', 'Choose a community or activity group.');
-  const joinable = cleanBoolean(body.joinable, 'joinable', user.role === 'admin' || kind === 'activity');
+  const joinable = cleanBoolean(body.joinable, 'joinable', true);
   const year = body.year === undefined || body.year === null || body.year === '' ? null : cleanInteger(body.year, 'year', { min: 1, max: 4 });
   const department = cleanString(body.department ?? '', 'department', { max: 80 });
   const section = cleanString(body.section ?? '', 'section', { max: 30 });

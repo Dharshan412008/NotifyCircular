@@ -232,6 +232,7 @@ function createApplication(options = {}) {
   app.locals.disconnectUserSockets = () => {};
   app.locals.publishCampus = () => {};
   app.locals.publishNotification = () => {};
+  app.locals.publishDiscussion = () => {};
   const circularTools = require('./circular-tools').createCircularTools({
     db, notificationService, publicOrigin: env.PUBLIC_ORIGIN,
     publishCircular: (circular) => app.locals.publishCircular(circular),
@@ -246,6 +247,14 @@ function createApplication(options = {}) {
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, service: 'notify-circular' });
   });
+  let buildId = null;
+  if (app.get('env') !== 'test' || options.distPath) {
+    try {
+      const info = JSON.parse(fs.readFileSync(path.join(options.distPath || path.join(WORKSPACE_ROOT, 'dist'), 'build-info.json'), 'utf8'));
+      if (typeof info.buildId === 'string' && info.buildId.length <= 128) buildId = info.buildId;
+    } catch { /* Development and older builds may not include release metadata. */ }
+  }
+  app.get('/api/version', (_req, res) => res.json({ buildId }));
 
   app.get('/api/auth/me', (req, res) => {
     res.json({ user: req.user || null });
@@ -268,7 +277,8 @@ function createApplication(options = {}) {
       if (!valid) {
         throw new ApiError(401, 'invalid_credentials', 'Email or password is incorrect.');
       }
-      assert(!body.role || body.role === row.role, 403, 'wrong_portal', 'This account is not assigned to the selected portal. Choose the correct portal or contact your college.');
+      const facultyDemo = !authSettings.collegePasswordAuth && body.allowFacultyDemo === true && body.role === 'faculty' && row.role === 'student';
+      assert(!body.role || body.role === row.role || facultyDemo, 403, 'wrong_portal', 'This account is not assigned to the selected portal. Choose the correct portal or contact your college.');
       if (authSettings.collegePasswordAuth && !emailVerification.verified(row.id)) return res.json(await emailVerification.begin(req, row));
       await regenerateSession(req);
       req.session.userId = Number(row.id);
@@ -299,6 +309,7 @@ function createApplication(options = {}) {
       if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) {
         throw new ApiError(409, 'email_in_use', 'An account already exists for this email.');
       }
+      const profile = require('./registration-profile').registrationProfile(body.profile, role);
 
       let activityGroups = [];
       if (activityGroupIds.length) {
@@ -327,6 +338,8 @@ function createApplication(options = {}) {
           `)
           .run(name, email, passwordHash, role, year, now);
         const id = Number(result.lastInsertRowid);
+        db.prepare(`INSERT INTO user_profiles(user_id,register_number,department,program,section,academic_year,phone,employee_id,designation)
+          VALUES(?,?,?,?,?,?,?,?,?)`).run(id, profile.register_number, profile.department, profile.program, profile.section, profile.academic_year, profile.phone, profile.employee_id, profile.designation);
         if (role === 'faculty') return id;
         const automaticGroups = db
           .prepare(`

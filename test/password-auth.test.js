@@ -4,11 +4,26 @@ const { it } = require('node:test');
 const request = require('supertest');
 const { createApplication } = require('../src/app');
 
+it('permits explicit faculty demo login while preserving student permissions', async () => {
+  const context = createApplication({ dbPath: ':memory:', envName: 'test', env: { AUTH_MODE: 'password' }, bcryptRounds: 4, disableOutboundNotifications: true });
+  try {
+    const agent = request.agent(context.app);
+    const credentials = { email: 'asha@demo.edu', password: 'Student123!', role: 'faculty', allowFacultyDemo: true };
+    await agent.post('/api/auth/login').send({ ...credentials, password: 'wrong' }).expect(401);
+    const response = await agent.post('/api/auth/login').send(credentials).expect(200);
+    assert.equal(response.body.user.role, 'student');
+    assert.equal((await agent.get('/api/auth/me')).body.user.role, 'student');
+    await agent.post('/api/circulars').send({}).expect(403);
+    await agent.get('/api/admin/stats').expect(403);
+    await agent.post('/api/auth/login').send({ ...credentials, role: 'admin' }).expect(403);
+  } finally { context.close(); }
+});
+
 it('creates faculty accounts without student memberships and supports faculty login', async () => {
   const context = createApplication({ dbPath: ':memory:', envName: 'test', env: { AUTH_MODE: 'password' }, bcryptRounds: 4, disableOutboundNotifications: true });
   try {
     const agent = request.agent(context.app);
-    const result = await agent.post('/api/auth/register').send({ name: 'New Faculty', email: 'teacher@gmail.com', password: 'CampusPass123!', role: 'faculty' }).expect(201);
+    const result = await agent.post('/api/auth/register').send({ name: 'New Faculty', email: 'teacher@gmail.com', password: 'CampusPass123!', role: 'faculty', profile: { department: 'Computer Science', employee_id: 'FAC101', designation: 'Assistant Professor' } }).expect(201);
     assert.equal(result.body.user.role, 'faculty');
     assert.equal(result.body.user.year, null);
     assert.equal(context.db.prepare('SELECT count(*) n FROM student_group_memberships WHERE student_id=?').get(result.body.user.id).n, 0);
@@ -27,7 +42,7 @@ it('allows normal Gmail registration and password login without email setup or O
       const settings = (await agent.get('/api/auth/options').expect(200)).body;
       assert.equal(settings.collegePasswordAuth, false);
       assert.deepEqual(settings.domains, []);
-      const created = await agent.post('/api/auth/register').send({ name: 'New Student', email: ' Student@GMAIL.COM ', password: 'CampusPass123!', year: 1, role: 'admin' }).expect(201);
+      const created = await agent.post('/api/auth/register').send({ name: 'New Student', email: ' Student@GMAIL.COM ', password: 'CampusPass123!', year: 1, role: 'admin', profile: { department: 'Computer Science', register_number: 'ST101', program: 'BE', section: 'A', academic_year: '2026-2027' } }).expect(201);
       assert.equal(created.body.user.email, 'student@gmail.com');
       assert.equal(created.body.user.role, 'student');
       assert.equal(created.body.verificationRequired, undefined);
@@ -50,7 +65,7 @@ it('restricts password registration and login to the exact college domain and pr
       await agent.post('/api/auth/register').send({ name: 'Student Name', email, password: 'Secure123!', year: 1 }).expect(400);
       await agent.post('/api/auth/login').send({ email, password: 'Secure123!' }).expect(400);
     }
-    const account = await agent.post('/api/auth/register').send({ name: 'Student Name', email: ' Student@SRISHAKTHI.AC.IN ', password: 'Secure123!', year: 1, role: 'admin' }).expect(201);
+    const account = await agent.post('/api/auth/register').send({ name: 'Student Name', email: ' Student@SRISHAKTHI.AC.IN ', password: 'Secure123!', year: 1, role: 'admin', profile: { department: 'Computer Science', register_number: 'ST101', program: 'BE', section: 'A', academic_year: '2026-2027' } }).expect(201);
     assert.equal(account.body.email, 'student@srishakthi.ac.in');
     assert.equal(account.body.verificationRequired, true);
     assert.equal((await agent.get('/api/auth/me')).body.user, null);

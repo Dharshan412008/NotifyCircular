@@ -40,7 +40,7 @@ This runs the API and React component suites, builds the client, and runs Playwr
 
 First visits open the login screen. Select Student or Faculty and sign in with your email and CampusRelay password. Gmail and other valid email addresses are accepted. No OTP, email sender, or Google Cloud setup is required in the default `AUTH_MODE=password` mode. New students choose **New student? Create an account**, enter their name, email and academic year, and create a password of at least eight characters. Do not enter your Gmail password.
 
-Faculty can choose **New faculty? Create an account** in the Faculty portal to register with an email and CampusRelay password. Faculty registration in normal password mode grants faculty access immediately. Administrator accounts must still be provisioned. Existing accounts cannot switch roles by selecting another portal. Existing account passwords continue to work. Email ownership is not verified in normal password mode. Optional college OTP uses `AUTH_MODE=college`; optional Google sign-in uses `AUTH_MODE=google`.
+Faculty can choose **New faculty? Create an account** in the Faculty portal to register with an email and CampusRelay password. Faculty registration in normal password mode grants faculty access immediately. Administrator accounts must still be provisioned. Existing accounts cannot switch roles by selecting another portal. Students can sign in through the Faculty portal to explore a demo workspace with sample circulars, groups, and delivery reports. Demo actions stay in the browser and never send real circulars. Existing account passwords continue to work. Email ownership is not verified in normal password mode. Optional college OTP uses `AUTH_MODE=college`; optional Google sign-in uses `AUTH_MODE=google`.
 
 ## Implemented features
 
@@ -103,3 +103,13 @@ Analytics now includes reporting periods, unique audience reach, daily activity,
 Portals, analytics, dashboards and Circular Studio load on demand, reducing the initial download. Loading indicators provide feedback, and a screen failure offers a reload action. Opening an uncached screen requires a connection.
 
 Group creation in the faculty and admin portals includes type, description, icon, study year, department, section, parent group, explicit student selection, and independent self-joining permissions. A preview counts selected members without duplicates. Automatic matching adds current students once at creation and requires at least one filter; with no filters, only explicitly selected students are added.
+
+## Registration details
+
+New student accounts require a full name, email, CampusRelay password, register number/student ID, department, degree/program, year of study, section, and academic session. New faculty accounts require a full name, email, password, employee/faculty ID, department, and designation. Phone contact is optional for both roles. Registration confirms the password and saves the details atomically with the account. Users can view and update their details under Profile & preferences. Existing accounts and profiles are preserved.
+
+## Application updates
+
+Every production build includes a unique release ID. Open apps check `/api/version` once a minute while visible, and on reconnect or returning to the tab. A new release offers **Reload app** and **Later**, so unfinished work is not discarded automatically. Installed apps fetch the current page when reopened online. Users on versions older than this update must refresh or reopen once to receive the update prompt feature.
+
+Railway updates should use the existing service and its persistent volume at `/app/data`; do not replace the service or delete its volume. Push to the connected GitHub branch to trigger deployment when autodeploy is enabled. Confirm the new deployment succeeds before announcing availability to users. GitHub source updates alone do not confirm a live release.

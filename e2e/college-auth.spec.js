@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { signIn } from './sign-in.js';
+import { signIn, fillRegistrationDetails } from './sign-in.js';
 
 test('faculty can register and sign back in to the compose page', async ({ page }, testInfo) => {
   const email = `teacher-${testInfo.project.name}@gmail.com`;
@@ -9,6 +9,7 @@ test('faculty can register and sign back in to the compose page', async ({ page 
   await expect(page.getByLabel('Academic year')).toHaveCount(0);
   await page.getByLabel('Email address', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill('CampusPass123!');
+  await fillRegistrationDetails(page, 'faculty', 'CampusPass123!');
   await page.getByRole('button', { name: 'Create faculty account', exact: true }).click();
   await expect(page.getByRole('heading', { name: /compose an official notice/i })).toBeVisible();
   expect((await (await page.request.get('/api/auth/me')).json()).user.role).toBe('faculty');
@@ -27,6 +28,7 @@ test('a Gmail student can register and sign in without OTP', async ({ page }, te
   await page.getByLabel('Full name').fill('Normal Login Student');
   await page.getByLabel('Email address', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill('CampusPass123!');
+  await fillRegistrationDetails(page, 'student', 'CampusPass123!');
   await page.getByRole('button', { name: 'Create student account', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your circulars', exact: true })).toBeVisible();
   expect((await (await page.request.get('/api/auth/me')).json()).user.email).toBe(email);
@@ -72,12 +74,33 @@ test('first visit shows college Google login without trial accounts or a passwor
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('a student cannot gain faculty access by selecting the faculty portal', async ({ page }) => {
+test('student login opens a faculty demo without granting faculty permissions', async ({ page }) => {
   await page.goto('/faculty');
   await signIn(page, 'student');
-  await expect(page.getByRole('alert')).toContainText('not assigned to the selected portal');
-  expect((await (await page.request.get('/api/auth/me')).json()).user).toBeNull();
-  await page.getByRole('button', { name: 'Student portal', exact: true }).click();
-  await signIn(page, 'student');
+  await expect(page.getByRole('heading', { name: 'Faculty demo', exact: true })).toBeVisible();
+  expect((await (await page.request.get('/api/auth/me')).json()).user.role).toBe('student');
+  expect((await page.request.post('/api/circulars', { data: {} })).status()).toBe(403);
+  await page.getByLabel('Circular title').fill('My demo notice');
+  await page.getByLabel('Message', { exact: true }).fill('Try the faculty compose workflow.');
+  await page.getByRole('button', { name: 'Send demo circular' }).click();
+  await expect(page.getByRole('status')).toContainText('No real recipients');
+  await expect(page.getByRole('heading', { name: 'My demo notice' })).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Sent', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'My demo notice' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back to Student portal' }).click();
   await expect(page.getByRole('heading', { name: 'Your circulars', exact: true })).toBeVisible();
+});
+
+test('duplicate faculty registration guides an existing student to sign in', async ({ page }) => {
+  await page.goto('/faculty');
+  await page.getByRole('button', { name: 'New faculty? Create an account' }).click();
+  await page.getByLabel('Full name').fill('Asha Rao');
+  await page.getByLabel('Email address', { exact: true }).fill('asha@demo.edu');
+  await page.getByLabel('Password', { exact: true }).fill('Student123!');
+  await fillRegistrationDetails(page, 'faculty', 'Student123!');
+  await page.getByRole('button', { name: 'Create faculty account' }).click();
+  await expect(page.getByRole('alert')).toContainText('existing CampusRelay password');
+  await page.getByRole('button', { name: 'Sign in securely' }).click();
+  await expect(page.getByRole('heading', { name: 'Faculty demo', exact: true })).toBeVisible();
 });

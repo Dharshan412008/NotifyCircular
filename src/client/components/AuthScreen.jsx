@@ -18,6 +18,8 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
   const [params] = useSearchParams();
   const [email, setEmail] = useState(''), [password, setPassword] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [registering, setRegistering] = useState(false), [name, setName] = useState(''), [year, setYear] = useState('1');
+  const [profile, setProfile] = useState({ department: '', register_number: '', program: '', section: '', academic_year: '', employee_id: '', designation: '', phone: '' });
+  const [confirmation, setConfirmation] = useState('');
   const [verification, setVerification] = useState(null), [code, setCode] = useState(''), [notice, setNotice] = useState('');
   const settings = useQuery({ queryKey: ['auth-options'], queryFn: () => apiRequest('/api/auth/options'), staleTime: 60000 });
   const canRegister = role === 'student' || (role === 'faculty' && settings.data?.collegePasswordAuth === false);
@@ -25,13 +27,19 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
   async function signIn(event) {
     event.preventDefault(); setError(''); setBusy(true);
     try {
-      if (settings.data.collegePasswordAuth === true && !/^[^\s@]+@srishakthi\.ac\.in$/i.test(email.trim())) throw new Error('Use an email address ending in @srishakthi.ac.in.');
-      const result = await apiRequest(registering && canRegister ? '/api/auth/register' : '/api/auth/login', { method: 'POST', body: registering && canRegister ? { email: email.trim(), password, name, role, ...(role === 'student' ? { year: Number(year) } : {}) } : { email: email.trim(), password, role } });
+      if (settings.data?.collegePasswordAuth === true && !/^[^\s@]+@srishakthi\.ac\.in$/i.test(email.trim())) throw new Error('Use an email address ending in @srishakthi.ac.in.');
+      if (registering && password !== confirmation) throw new Error('Passwords do not match.');
+      const result = await apiRequest(registering && canRegister ? '/api/auth/register' : '/api/auth/login', { method: 'POST', body: registering && canRegister ? { email: email.trim(), password, name, role, profile, ...(role === 'student' ? { year: Number(year) } : {}) } : { email: email.trim(), password, role, allowFacultyDemo: role === 'faculty' && settings.data?.collegePasswordAuth === false } });
       if (result.verificationRequired) { setVerification(result); setPassword(''); setCode(''); return; }
-      if (result.user?.role !== role) throw new Error('This account is not assigned to the selected portal.');
+      if (result.user?.role !== role && !(role === 'faculty' && result.user?.role === 'student' && settings.data.collegePasswordAuth === false)) throw new Error('This account is not assigned to the selected portal.');
       await onAuthenticated?.(result.user);
       if (location.pathname === '/') navigate('/' + role, { replace: true });
-    } catch (failure) { setError(failure.message || 'Sign-in failed.'); } finally { setBusy(false); }
+    } catch (failure) {
+      if (failure.code === 'email_in_use') {
+        setRegistering(false);
+        setError('An account already exists for this email. Sign in with its existing CampusRelay password. Student accounts can preview the faculty demo.');
+      } else setError(failure.message || 'Sign-in failed.');
+    } finally { setBusy(false); }
   }
   async function verify(event) {
     event.preventDefault(); setError(''); setNotice(''); setBusy(true);
@@ -51,9 +59,32 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
     <header className="topbar"><span className="mini-wordmark"><span className="logo-mark small"><RadioTower /></span> CampusRelay</span><div className="portal-header-actions">{installAvailable && <button className="inline-button" onClick={onInstall}>Install CampusRelay</button>}<PortalThemeButton /></div></header>
     <div className="auth-heading"><span className="soft-badge"><GraduationCap size={16} /> Your college, connected</span><h2 id="authTitle">Sign in to CampusRelay</h2><p>{settings.data?.localAuth ? 'Choose your portal and sign in with your email and CampusRelay password.' : 'Choose your portal and continue with your college Google account.'}</p></div>
     <div className="filter-row auth-portal-picker" aria-label="Choose your portal">
-      {['student', 'faculty'].map((value) => <button key={value} aria-pressed={role === value} className={role === value ? 'active' : ''} disabled={busy} onClick={() => { setError(''); setPassword(''); setRegistering(false); setVerification(null); setNotice(''); navigate('/' + value); }}>{value === 'student' ? 'Student portal' : 'Faculty portal'}</button>)}
+      {[
+        ['student', 'Student portal'],
+        ['faculty', 'Faculty portal'],
+        ['admin', 'Admin portal'],
+      ].map(([value, portalLabel]) => (
+        <button
+          key={value}
+          aria-pressed={role === value}
+          className={role === value ? 'active' : ''}
+          disabled={busy}
+          onClick={() => {
+            setError('');
+            setPassword('');
+            setRegistering(false);
+            setProfile({ department: '', register_number: '', program: '', section: '', academic_year: '', employee_id: '', designation: '', phone: '' });
+            setConfirmation('');
+            setVerification(null);
+            setNotice('');
+            navigate('/' + value);
+          }}
+        >
+          {portalLabel}
+        </button>
+      ))}
     </div>
-    <div className="settings-card college-login-card"><h3>{label} sign-in</h3>
+    <div className="settings-card college-login-card"><h3>{registering ? `${label} registration` : `${label} sign-in`}</h3>
       {settings.isPending && <p role="status">Loading sign-in options…</p>}
       {settings.isSuccess && <>
         {settings.data.domains?.length > 0 && <p className="view-intro">College accounts: {settings.data.domains.map((domain) => '@' + domain).join(', ')}</p>}
@@ -68,18 +99,29 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
         </form>}
         {notice && <p role="status">{notice}</p>}
         {settings.data.localAuth && !verification && <form className="form-stack local-login-form" onSubmit={signIn}>
+          {role === 'faculty' && settings.data.collegePasswordAuth === false && <p className="collection-note">Already have a student account? Sign in below to explore a faculty demo with sample data.</p>}
           <p className="collection-note">{settings.data.collegePasswordAuth ? 'Use your college email and CampusRelay password.' : 'Use your Gmail or another email address and a password created for CampusRelay.'}</p>
-          {registering && canRegister && <><label className="field"><span>Full name</span><input required minLength={2} maxLength={100} autoComplete="name" value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /></label>{role === 'student' && <label className="field"><span>Academic year</span><select value={year} disabled={busy} onChange={(event) => setYear(event.target.value)}>{[1, 2, 3, 4].map((value) => <option key={value} value={value}>Year {value}</option>)}</select></label>}</>}
+          {registering && canRegister && <><label className="field"><span>Full name</span><input required minLength={2} maxLength={100} autoComplete="name" value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /></label>{role === 'student' && <label className="field"><span>Year of study</span><select value={year} disabled={busy} onChange={(event) => setYear(event.target.value)}>{[1, 2, 3, 4].map((value) => <option key={value} value={value}>Year {value}</option>)}</select></label>}</>}
+          {registering && canRegister && <>
+            <h4>{role === 'student' ? 'Student details' : 'Faculty details'}</h4>
+            {(role === 'student' ? [['register_number', 'Register number / Student ID', 50], ['department', 'Department', 80], ['program', 'Degree / Program', 80], ['section', 'Section', 30], ['academic_year', 'Academic session (e.g. 2026–2027)', 30]] : [['employee_id', 'Employee / Faculty ID', 50], ['department', 'Department', 80], ['designation', 'Designation', 80]]).map(([key, text, max]) => <label className="field" key={key}><span>{text}</span><input required maxLength={max} value={profile[key]} disabled={busy} onChange={(event) => setProfile({ ...profile, [key]: event.target.value })} /></label>)}
+            <label className="field"><span>Phone number (optional)</span><input type="tel" autoComplete="tel" maxLength={25} value={profile.phone} disabled={busy} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} /></label>
+          </>}
           <label className="field"><span>Email address</span><input type="email" autoComplete="username" placeholder={settings.data.collegePasswordAuth ? "yourname@srishakthi.ac.in" : "yourname@gmail.com"} required value={email} disabled={busy} onChange={(event) => setEmail(event.target.value)} /></label>
           <label className="field"><span>Password</span><input type="password" minLength={registering ? 8 : 1} maxLength={128} autoComplete={registering ? 'new-password' : 'current-password'} required value={password} disabled={busy} onChange={(event) => setPassword(event.target.value)} /></label>
+          {registering && <label className="field"><span>Confirm password</span><input type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={confirmation} disabled={busy} onChange={(event) => setConfirmation(event.target.value)} /></label>}
           <button className="primary-button" disabled={busy}>{busy ? 'Please wait…' : registering && canRegister ? `Create ${role} account` : 'Sign in securely'}</button>
-          {canRegister && <button type="button" className="inline-button" disabled={busy} onClick={() => { setRegistering(!registering); setError(''); setPassword(''); }}>{registering ? 'Already have an account? Sign in' : `New ${role}? Create an account`}</button>}
+          {canRegister && <button type="button" className="inline-button" disabled={busy} onClick={() => { setRegistering(!registering); setError(''); setPassword(''); setConfirmation(''); }}>{registering ? 'Already have an account? Sign in' : `New ${role}? Create an account`}</button>}
         </form>}
       </>}
       {failure && <p className="form-error" role="alert">{failure}</p>}
       {settings.isError && <button className="secondary-button" onClick={() => settings.refetch()}>Retry sign-in options</button>}
     </div>
     <p className="auth-security"><ShieldCheck /><span>{settings.data?.localAuth ? (settings.data.collegePasswordAuth ? 'Verify your college mailbox with an email code before your first sign-in.' : 'Use your CampusRelay password here, never your Gmail password.') : 'Google verifies your identity. Your Google password stays with Google. Faculty permissions are assigned by your college.'}</span></p>
-    {role !== 'admin' && <button className="inline-button admin-entry" onClick={() => navigate('/admin')}>College administration</button>}
+    {role !== 'admin' ? (
+      <button className="inline-button admin-entry" onClick={() => navigate('/admin')}>Administrator sign-in</button>
+    ) : (
+      <button className="inline-button admin-entry" onClick={() => navigate('/student')}>Back to student portal</button>
+    )}
   </section>;
 }

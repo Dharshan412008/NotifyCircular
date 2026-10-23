@@ -19,7 +19,9 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 
 import { apiRequest, AUTH_EXPIRED_EVENT } from './api.js';
 import AuthScreen from './components/AuthScreen.jsx';
+import UpdateNotice from './components/UpdateNotice.jsx';
 const FacultyPortal = lazy(() => import('./components/FacultyPortal.jsx'));
+const FacultyDemo = lazy(() => import('./components/FacultyDemo.jsx'));
 const StudentPortal = lazy(() => import('./components/StudentPortal.jsx'));
 const AdminPortal = lazy(() => import('./components/AdminPortal.jsx'));
 import { ThemeContext } from './components/PortalThemeButton.jsx';
@@ -272,6 +274,7 @@ export default function App() {
       );
     }
     if (!user) return <AuthScreen role={role} onAuthenticated={handleAuthenticated} />;
+    if (role === 'faculty' && user.role === 'student') return <FacultyDemo user={user} onLogout={handleLogout} />;
     if (user.role !== role) return <Navigate to={`/${user.role}`} replace />;
     if (role === 'faculty') return <FacultyPortal user={user} onLogout={handleLogout} />;
     if (role === 'admin') return <AdminPortal user={user} onLogout={handleLogout} />;
@@ -281,6 +284,7 @@ export default function App() {
   return (
     <ThemeContext.Provider value={{ value: theme, mode, setMode, toggle: toggleTheme }}>
     <DisplayProvider><DeviceShell>
+      <UpdateNotice />
       <RouteBoundary><Suspense fallback={<RouteLoading />}><Routes>
         <Route
           path="/"

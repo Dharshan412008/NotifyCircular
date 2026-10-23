@@ -31,10 +31,18 @@ function discussionsRouter(db) {
       last_message_id INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY(group_id, user_id)
     );
+    CREATE TABLE IF NOT EXISTS discussion_stars (
+      message_id INTEGER NOT NULL REFERENCES discussion_messages(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(message_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_discussion_stars_user ON discussion_stars(user_id, message_id);
   `);
   const router = express.Router();
   router.use(requireAuth, express.json({ limit: '16kb' }));
   const writeLimit = rateLimit({ windowMs: 60_000, limit: 60, keyGenerator: (req) => String(req.user.id), standardHeaders: 'draft-8', legacyHeaders: false, message: { error: { message: 'Please slow down and try again in a minute.' } } });
+  const SUPPORTED_EMOJIS = ['👍', '❤️', '🔥', '🎉', '👏', '🚀', '👀', '❓', '💯', '🤝', '⚡', '💡'];
   const staff = (user) => ['faculty', 'admin'].includes(user.role);
   const allowed = (user, id) => db.prepare(`SELECT g.id,g.name,g.description FROM groups g WHERE g.id=? AND g.kind!='role' AND (? OR EXISTS(SELECT 1 FROM student_group_memberships WHERE group_id=g.id AND student_id=?))`).get(id, Number(staff(user)), user.id);
   router.get('/', (req, res) => {
@@ -59,13 +67,25 @@ function discussionsRouter(db) {
     const before = req.query.before === undefined ? Number.MAX_SAFE_INTEGER : cleanInteger(req.query.before, 'before', { min: 1 });
     const q = cleanString(req.query.q || '', 'search', { max: 100 });
     const pinned = req.query.pinned === 'true';
+    const starred = req.query.starred === 'true';
     const rows = db.prepare(`SELECT m.id,m.body,m.created_at AS createdAt,m.user_id AS authorId,u.name AS authorName,u.role AS authorRole,m.pinned,m.deleted,
+      EXISTS(SELECT 1 FROM discussion_stars s WHERE s.message_id=m.id AND s.user_id=?) AS starred,
+      (SELECT MAX(dr.last_message_id) FROM discussion_reads dr WHERE dr.group_id=m.group_id AND dr.user_id!=m.user_id) AS readCursor,
       r.id AS replyId, CASE WHEN r.deleted=1 THEN 'Message removed' ELSE r.body END AS replyBody, ru.name AS replyAuthor
       FROM discussion_messages m JOIN users u ON u.id=m.user_id
       LEFT JOIN discussion_messages r ON r.id=m.reply_to LEFT JOIN users ru ON ru.id=r.user_id
-      WHERE m.group_id=? AND m.id<? AND (?='' OR (m.deleted=0 AND (instr(lower(m.body),lower(?))>0 OR instr(lower(u.name),lower(?))>0))) AND (?=0 OR (m.pinned=1 AND m.deleted=0))
-      ORDER BY m.id DESC LIMIT 41`).all(req.channelId, before, q, q, q, Number(pinned));
-    const messages = rows.slice(0, 40).map((row) => ({ ...row, body: row.deleted ? 'Message removed' : row.body, reactions: row.deleted ? [] : db.prepare(`SELECT emoji,COUNT(*) AS count,MAX(user_id=?) AS mine FROM discussion_reactions WHERE message_id=? GROUP BY emoji ORDER BY emoji`).all(req.user.id, row.id) }));
+      WHERE m.group_id=? AND m.id<?
+        AND (?='' OR (m.deleted=0 AND (instr(lower(m.body),lower(?))>0 OR instr(lower(u.name),lower(?))>0)))
+        AND (?=0 OR (m.pinned=1 AND m.deleted=0))
+        AND (?=0 OR (EXISTS(SELECT 1 FROM discussion_stars s WHERE s.message_id=m.id AND s.user_id=?) AND m.deleted=0))
+      ORDER BY m.id DESC LIMIT 41`).all(req.user.id, req.channelId, before, q, q, q, Number(pinned), Number(starred), req.user.id);
+    const messages = rows.slice(0, 40).map((row) => ({
+      ...row,
+      starred: Boolean(row.starred),
+      isRead: Boolean(row.readCursor && row.readCursor >= row.id),
+      body: row.deleted ? 'Message removed' : row.body,
+      reactions: row.deleted ? [] : db.prepare(`SELECT emoji,COUNT(*) AS count,MAX(user_id=?) AS mine FROM discussion_reactions WHERE message_id=? GROUP BY emoji ORDER BY emoji`).all(req.user.id, row.id)
+    }));
     res.json({ messages, nextCursor: rows.length > 40 ? rows[39].id : null });
   });
   router.post('/:groupId/messages', writeLimit, (req, res) => {
@@ -74,19 +94,30 @@ function discussionsRouter(db) {
     const replyId = body.replyTo == null ? null : cleanInteger(body.replyTo, 'replyTo', { min: 1 });
     if (replyId) assert(db.prepare('SELECT id FROM discussion_messages WHERE id=? AND group_id=? AND deleted=0').get(replyId, req.channelId), 400, 'invalid_reply', 'Reply to an available message in this discussion.');
     const result = db.prepare('INSERT INTO discussion_messages(group_id,user_id,body,reply_to,created_at) VALUES(?,?,?,?,?)').run(req.channelId, req.user.id, text, replyId, utcNow());
+    req.app.locals.publishDiscussion?.(req.channelId);
     res.status(201).json({ id: Number(result.lastInsertRowid) });
   });
   router.put('/:groupId/read', (req, res) => {
     const id = cleanInteger(requireObject(req.body).messageId, 'messageId', { min: 1 });
     assert(db.prepare('SELECT id FROM discussion_messages WHERE id=? AND group_id=?').get(id, req.channelId), 400, 'invalid_message', 'Choose a message from this discussion.');
     db.prepare('INSERT INTO discussion_reads(group_id,user_id,last_message_id) VALUES(?,?,?) ON CONFLICT(group_id,user_id) DO UPDATE SET last_message_id=MAX(last_message_id,excluded.last_message_id)').run(req.channelId, req.user.id, id);
+    req.app.locals.publishDiscussion?.(req.channelId);
     res.json({ ok: true });
   });
   router.put('/:groupId/messages/:messageId/reactions', writeLimit, (req, res) => {
     const row = message(req), body = requireObject(req.body);
-    assert(['👍', '🎉', '❤️', '❓'].includes(body.emoji) && typeof body.active === 'boolean', 400, 'invalid_reaction', 'Choose a supported reaction.');
+    assert(SUPPORTED_EMOJIS.includes(body.emoji) && typeof body.active === 'boolean', 400, 'invalid_reaction', 'Choose a supported reaction.');
     if (body.active) db.prepare('INSERT OR IGNORE INTO discussion_reactions(message_id,user_id,emoji) VALUES(?,?,?)').run(row.id, req.user.id, body.emoji);
     else db.prepare('DELETE FROM discussion_reactions WHERE message_id=? AND user_id=? AND emoji=?').run(row.id, req.user.id, body.emoji);
+    req.app.locals.publishDiscussion?.(req.channelId);
+    res.json({ ok: true });
+  });
+  router.put('/:groupId/messages/:messageId/star', writeLimit, (req, res) => {
+    const row = message(req), body = requireObject(req.body);
+    assert(typeof body.starred === 'boolean', 400, 'invalid_star', 'Choose whether to star this message.');
+    if (body.starred) db.prepare('INSERT OR IGNORE INTO discussion_stars(message_id,user_id,created_at) VALUES(?,?,?)').run(row.id, req.user.id, utcNow());
+    else db.prepare('DELETE FROM discussion_stars WHERE message_id=? AND user_id=?').run(row.id, req.user.id);
+    req.app.locals.publishDiscussion?.(req.channelId);
     res.json({ ok: true });
   });
   router.put('/:groupId/messages/:messageId/pin', (req, res) => {
@@ -95,6 +126,7 @@ function discussionsRouter(db) {
     assert(typeof body.pinned === 'boolean', 400, 'invalid_pin', 'Choose whether to pin this message.');
     if (body.pinned && !row.pinned) assert(db.prepare('SELECT COUNT(*) AS n FROM discussion_messages WHERE group_id=? AND pinned=1 AND deleted=0').get(req.channelId).n < 5, 400, 'pin_limit', 'Unpin a message first. Each discussion can have five pins.');
     db.prepare('UPDATE discussion_messages SET pinned=? WHERE id=?').run(Number(body.pinned), row.id);
+    req.app.locals.publishDiscussion?.(req.channelId);
     res.json({ ok: true });
   });
   router.delete('/:groupId/messages/:messageId', (req, res) => {
@@ -103,7 +135,9 @@ function discussionsRouter(db) {
     db.transaction(() => {
       db.prepare("UPDATE discussion_messages SET body='',deleted=1,pinned=0 WHERE id=?").run(row.id);
       db.prepare('DELETE FROM discussion_reactions WHERE message_id=?').run(row.id);
+      db.prepare('DELETE FROM discussion_stars WHERE message_id=?').run(row.id);
     })();
+    req.app.locals.publishDiscussion?.(req.channelId);
     res.json({ ok: true });
   });
   return router;

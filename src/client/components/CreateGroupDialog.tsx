@@ -10,7 +10,7 @@ export default function CreateGroupDialog({ role, onClose }: { role: 'faculty' |
   const endpoint = role === 'admin' ? '/api/admin/groups' : '/api/groups';
   const options = useQuery({ queryKey: ['group-create-options', role], queryFn: ({ signal }) => apiRequest<Options>(`${endpoint}/create-options`, { signal }), staleTime: 0 });
   const [year, setYear] = useState(''), [department, setDepartment] = useState(''), [section, setSection] = useState(''), [parent, setParent] = useState('');
-  const [kind, setKind] = useState('custom'), [joinable, setJoinable] = useState(false), [automatic, setAutomatic] = useState(true);
+  const [kind, setKind] = useState('custom'), [joinable, setJoinable] = useState(true), [automatic, setAutomatic] = useState(true);
   const [selected, setSelected] = useState<Set<number>>(() => new Set()), [search, setSearch] = useState('');
   const students = options.data?.students || [];
   const normalize = (value: string) => value.trim().toLowerCase();

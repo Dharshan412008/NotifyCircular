@@ -46,6 +46,7 @@ it('registers a student with a college email and rejects lookalike domains', asy
   await user.click(await screen.findByRole('button', { name: 'New student? Create an account' }));
   expect(screen.queryByRole('button', { name: 'Sign in with Google' })).not.toBeInTheDocument();
   await user.type(screen.getByLabelText('Full name'), 'College Student');
+  for (const [label, value] of [['Department', 'Computer Science'], ['Register number / Student ID', 'ST101'], ['Degree / Program', 'BE'], ['Section', 'A'], ['Academic session (e.g. 2026–2027)', '2026-2027'], ['Confirm password', 'Secure123!']]) await user.type(screen.getByLabelText(label), value);
   await user.type(screen.getByLabelText('Email address'), 'student@srishakthi.ac.in.attacker.com');
   await user.type(screen.getByLabelText('Password'), 'Secure123!');
   await user.click(screen.getByRole('button', { name: 'Create student account' }));
@@ -83,4 +84,29 @@ it('requires the email code before authentication and supports resend', async ()
   await waitFor(() => expect(onAuthenticated).toHaveBeenCalled());
   const call = fetchMock.mock.calls.find(([path]) => path === '/api/auth/verification/confirm');
   expect(JSON.parse(call[1].body)).toEqual({ code: '123456' });
+});
+
+it('displays admin portal switcher and administrator sign-in access from student portal', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => json({ localAuth: true, googleEnabled: false, domains: [] })));
+  renderAuth({ role: 'student' });
+  expect(await screen.findByRole('button', { name: 'Admin portal' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Administrator sign-in' })).toBeInTheDocument();
+});
+
+it('provides access to administrator sign-in and passes admin role on login', async () => {
+  const onAuthenticated = vi.fn();
+  const fetchMock = vi.fn(async (path) => path === '/api/auth/options'
+    ? json({ localAuth: true, googleEnabled: false, domains: [] })
+    : json({ user: { id: 3, role: 'admin', name: 'Campus Administrator' } }));
+  vi.stubGlobal('fetch', fetchMock);
+  renderAuth({ role: 'admin', onAuthenticated });
+  expect(await screen.findByRole('heading', { name: 'Administrator sign-in' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Admin portal' })).toHaveAttribute('aria-pressed', 'true');
+  const user = userEvent.setup();
+  await user.type(await screen.findByLabelText('Email address'), 'admin@demo.edu');
+  await user.type(screen.getByLabelText('Password'), 'Admin123!');
+  await user.click(screen.getByRole('button', { name: 'Sign in securely' }));
+  await waitFor(() => expect(onAuthenticated).toHaveBeenCalled());
+  const call = fetchMock.mock.calls.find(([path]) => path === '/api/auth/login');
+  expect(JSON.parse(call[1].body).role).toBe('admin');
 });

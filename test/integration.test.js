@@ -212,6 +212,7 @@ describe('NotifyCircular API', () => {
       .post('/api/auth/register')
       .send({
         name: 'Neha Patel',
+        profile: { department: 'Computer Science', register_number: 'ST101', program: 'BE', section: 'A', academic_year: '2026-2027' },
         email: 'neha@example.edu',
         password: 'SecurePass123!',
         year: 2,

@@ -85,3 +85,37 @@ it('paginates and searches the full history and tracks unread messages independe
   require('../src/discussions').discussionsRouter(app.db);
   assert.equal((await asha.get(`/api/discussions/${group}/messages`).expect(200)).body.messages[0].body, 'My own update');
 }));
+
+it('supports starring messages, filtering by starred, and extended reaction emojis', () => setup(async ({ faculty, asha, group }) => {
+  const msg1 = (await faculty.post(`/api/discussions/${group}/messages`).send({ text: 'Important: Project guidelines.' }).expect(201)).body.id;
+  const msg2 = (await asha.post(`/api/discussions/${group}/messages`).send({ text: 'Got it, professor!' }).expect(201)).body.id;
+
+  // Test extended emojis
+  await asha.put(`/api/discussions/${group}/messages/${msg1}/reactions`).send({ emoji: '🔥', active: true }).expect(200);
+  await faculty.put(`/api/discussions/${group}/messages/${msg1}/reactions`).send({ emoji: '🚀', active: true }).expect(200);
+  const rows = (await asha.get(`/api/discussions/${group}/messages`).expect(200)).body.messages;
+  const target = rows.find((m) => m.id === msg1);
+  assert(target.reactions.some((r) => r.emoji === '🔥' && r.count === 1));
+  assert(target.reactions.some((r) => r.emoji === '🚀' && r.count === 1));
+
+  // Test starring
+  assert.equal(target.starred, false);
+  await asha.put(`/api/discussions/${group}/messages/${msg1}/star`).send({ starred: true }).expect(200);
+  const ashaMessages = (await asha.get(`/api/discussions/${group}/messages`).expect(200)).body.messages;
+  assert.equal(ashaMessages.find((m) => m.id === msg1).starred, true);
+  assert.equal(ashaMessages.find((m) => m.id === msg2).starred, false);
+
+  // Faculty should NOT see asha's star as their own
+  const facultyMessages = (await faculty.get(`/api/discussions/${group}/messages`).expect(200)).body.messages;
+  assert.equal(facultyMessages.find((m) => m.id === msg1).starred, false);
+
+  // Filter by starred
+  const starredOnly = (await asha.get(`/api/discussions/${group}/messages?starred=true`).expect(200)).body.messages;
+  assert.equal(starredOnly.length, 1);
+  assert.equal(starredOnly[0].id, msg1);
+
+  // Unstar
+  await asha.put(`/api/discussions/${group}/messages/${msg1}/star`).send({ starred: false }).expect(200);
+  const unstarred = (await asha.get(`/api/discussions/${group}/messages?starred=true`).expect(200)).body.messages;
+  assert.equal(unstarred.length, 0);
+}));

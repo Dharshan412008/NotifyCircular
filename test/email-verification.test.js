@@ -10,7 +10,7 @@ async function fixture(run, overrides = {}) {
     env: { AUTH_MODE: 'college', MAIL_FROM: 'sender@example.com' },
     verificationTransport: { sendMail: async (message) => messages.push(message) }, ...overrides });
   const agent = request.agent(context.app);
-  const payload = { name: 'College Student', email: 'student@srishakthi.ac.in', password: 'Secure123!', year: 1 };
+  const payload = { name: 'College Student', email: 'student@srishakthi.ac.in', password: 'Secure123!', year: 1, profile: { department: 'Computer Science', register_number: 'ST101', program: 'BE', section: 'A', academic_year: '2026-2027' } };
   const code = () => messages.at(-1).text.match(/code is (\d{6})/)[1];
   try { await run({ context, agent, payload, messages, code }); } finally { context.close(); }
 }

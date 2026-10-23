@@ -29,6 +29,10 @@ function migratePlatform(db) {
       PRIMARY KEY(user_id,circular_id));
     CREATE TABLE IF NOT EXISTS digest_runs(user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,last_sent_at TEXT NOT NULL);
   `);
+  const columns = db.prepare('PRAGMA table_info(user_profiles)').all().map((column) => column.name);
+  for (const column of ['phone', 'employee_id', 'designation']) {
+    if (!columns.includes(column)) db.exec(`ALTER TABLE user_profiles ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
+  }
 }
 
 const VISIBILITY = `(c.faculty_id = @id AND @role = 'faculty') OR
@@ -165,12 +169,13 @@ function platformRouter(db) {
   });
   router.get('/profile', (req, res) => res.json({ profile: { ...req.user, ...db.prepare('SELECT * FROM user_profiles WHERE user_id=?').get(req.user.id) } }));
   router.put('/profile', (req, res) => {
-    const schema = z.object({ name: z.string().trim().min(2).max(100), register_number: z.string().trim().max(50), department: z.string().trim().max(80), program: z.string().trim().max(80), section: z.string().trim().max(30), academic_year: z.string().trim().max(30), bio: z.string().trim().max(500) });
+    const schema = z.object({ name: z.string().trim().min(2).max(100), register_number: z.string().trim().max(50), department: z.string().trim().max(80), program: z.string().trim().max(80), section: z.string().trim().max(30), academic_year: z.string().trim().max(30), bio: z.string().trim().max(500), phone: z.string().trim().max(25).refine((value) => !value || /^\+?[0-9 ()-]{7,25}$/.test(value) && value.replace(/\D/g, '').length >= 7).optional(), employee_id: z.string().trim().max(50).optional(), designation: z.string().trim().max(80).optional() });
     const parsed = schema.safeParse(req.body); assert(parsed.success, 400, 'validation_error', 'Check the profile fields and try again.');
     const p = parsed.data;
+    const previous = db.prepare('SELECT phone,employee_id,designation FROM user_profiles WHERE user_id=?').get(req.user.id) || {};
     db.transaction(() => {
       db.prepare('UPDATE users SET name=? WHERE id=?').run(p.name, req.user.id);
-      db.prepare(`INSERT INTO user_profiles VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET register_number=excluded.register_number,department=excluded.department,program=excluded.program,section=excluded.section,academic_year=excluded.academic_year,bio=excluded.bio`).run(req.user.id, p.register_number, p.department, p.program, p.section, p.academic_year, p.bio);
+      db.prepare(`INSERT INTO user_profiles(user_id,register_number,department,program,section,academic_year,bio,phone,employee_id,designation) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET register_number=excluded.register_number,department=excluded.department,program=excluded.program,section=excluded.section,academic_year=excluded.academic_year,bio=excluded.bio,phone=excluded.phone,employee_id=excluded.employee_id,designation=excluded.designation`).run(req.user.id, p.register_number, p.department, p.program, p.section, p.academic_year, p.bio, p.phone ?? previous.phone ?? '', p.employee_id ?? previous.employee_id ?? '', p.designation ?? previous.designation ?? '');
     })();
     res.json({ ok: true });
   });

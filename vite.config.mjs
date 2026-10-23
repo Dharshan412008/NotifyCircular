@@ -1,10 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { randomUUID } from 'node:crypto';
 
 const backend = 'http://127.0.0.1:3000';
+const buildId = randomUUID();
 
 export default defineConfig({
-  plugins: [react()],
+  define: { 'import.meta.env.VITE_APP_BUILD_ID': JSON.stringify(buildId) },
+  plugins: [react(), { name: 'release-info', generateBundle() {
+    this.emitFile({ type: 'asset', fileName: 'build-info.json', source: JSON.stringify({ buildId }) });
+  } }],
   publicDir: 'assets',
   build: {
     outDir: 'dist',

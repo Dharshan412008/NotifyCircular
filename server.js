@@ -53,6 +53,7 @@ function createServer(options = {}) {
   };
   context.app.locals.publishCampus = () => io.to('campus').emit('campus:changed');
   context.app.locals.publishNotification = (userId) => io.to(`user:${userId}`).emit('notification:changed');
+  context.app.locals.publishDiscussion = (groupId) => io.to('campus').emit('discussion:changed', { groupId });
 
   let closing = false;
   async function close() {

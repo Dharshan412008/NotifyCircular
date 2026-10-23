@@ -30,7 +30,9 @@ test('students and faculty discuss, reply, react and pin within a group', async 
     await page.getByRole('button', { name: 'Pinned', exact: true }).click();
     await expect(page.locator('.discussion-body').filter({ hasText: text })).toBeVisible();
     await expect(page.locator('.discussion-body').filter({ hasText: `Bring your ID ${testInfo.project.name}` })).toHaveCount(0);
-    await page.getByRole('searchbox', { name: 'Search discussion' }).fill(text);
+    const searchField = page.getByRole('searchbox', { name: 'Search discussion' });
+    expect((await searchField.boundingBox()).width).toBeGreaterThan(100);
+    await searchField.fill(text);
     await expect(page.getByRole('article')).toHaveCount(1);
     await page.screenshot({ path: testInfo.outputPath('group-discussion.png'), fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
