@@ -390,7 +390,7 @@ function openDatabase(options = {}) {
     VALUES(@slug,@name,@description,@icon,@kind,@joinable,@year,@createdAt)`);
   db.transaction(() => { for (const group of BUILT_IN_GROUPS) addGroup.run({ ...group, createdAt: utcNow() }); })();
   const seedDemo = options.seed ?? (env.NODE_ENV !== 'production' && env.SEED_DEMO_DATA !== 'false');
-  if (seedDemo) {
+  if (seedDemo && getSetting(db, 'demo_seed_disabled') !== 'true') {
     seedDatabase(db, options);
     if (env.NODE_ENV !== 'production') require('./admin-migration').seedAdmin(db, options);
   }
