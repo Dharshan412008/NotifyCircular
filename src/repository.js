@@ -27,6 +27,9 @@ function serializeGroup(row) {
     department: row.department || '',
     section: row.section || '',
     academicLevel: row.academic_level || '',
+    category: row.category || 'community',
+    sportsType: row.sports_type || '',
+    sportsName: row.sports_name || '',
     parentGroupId: row.parent_group_id === null || row.parent_group_id === undefined ? null : Number(row.parent_group_id),
   };
   if (row.is_member !== undefined) group.isMember = Boolean(row.is_member);
@@ -71,6 +74,7 @@ function listGroups(db, user) {
 
   return rows.filter(row => user?.role !== 'student' || require('./academics').matchesProfile(db, user.id, row)).map((row) => {
     const group = serializeGroup(row);
+    group.canManage = user ? require('./group-governance').canManage(db,user,row.id) : false;
     if (user?.role !== 'faculty') delete group.memberCount;
     return group;
   });

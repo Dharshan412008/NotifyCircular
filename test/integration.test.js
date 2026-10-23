@@ -239,6 +239,13 @@ describe('NotifyCircular API', () => {
       .post('/api/memberships')
       .send({ groupId: sports.id, joined: true })
       .expect(200);
+    const reviewer = request.agent(app);
+    await reviewer.post('/api/auth/login').send({email:'admin@demo.edu',password:'Admin123!'}).expect(200);
+    const pending = (await reviewer.get(`/api/community/groups/${sports.id}`).expect(200)).body.requests.find(r => r.student_id === registered.body.user.id);
+    assert(pending);
+    const beforeApproval = (await newStudent.get('/api/inbox')).body.circulars;
+    assert(!beforeApproval.some(c => c.targets.some(g => g.slug === 'sports')));
+    await reviewer.post(`/api/community/join-requests/${pending.id}/review`).send({decision:'approve'}).expect(200);
     const joinedInbox = (await newStudent.get('/api/inbox').expect(200)).body.circulars;
     assert(joinedInbox.some((circular) => circular.targets.some((group) => group.slug === 'sports')));
   });
@@ -376,7 +383,10 @@ describe('NotifyCircular API', () => {
       .post('/api/groups')
       .send({ name: 'Robotics Club', description: 'Robots, electronics and automation', icon: 'RB' })
       .expect(201);
-    const group = created.body.group;
+    assert.equal(created.body.status,'pending');
+    const reviewer = request.agent(app);
+    await reviewer.post('/api/auth/login').send({email:'admin@demo.edu',password:'Admin123!'}).expect(200);
+    const group = (await reviewer.post(`/api/community/requests/${created.body.requestId}/review`).send({decision:'approve'}).expect(200)).body.group;
     assert.equal(group.kind, 'custom');
 
     const students = (await faculty.get('/api/students').expect(200)).body.students;
@@ -397,7 +407,7 @@ describe('NotifyCircular API', () => {
       .put(`/api/groups/${locked.id}/members`)
       .send({ studentIds: [raviUser.id] })
       .expect(403);
-    assert.equal(rejected.body.error.code, 'membership_locked');
+    assert.equal(rejected.body.error.code, 'group_forbidden');
   });
 
   it('exports authorized notices as text and valid all-day ICS', async () => {

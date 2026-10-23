@@ -79,90 +79,36 @@ describe('FacultyPortal', () => {
     await waitFor(() => expect(screen.getByLabelText(/circular message/i)).toHaveValue(''));
   });
 
-  it('does not replace memberships when the member list fails to load', async () => {
-    const group = {
-      id: 5,
-      slug: 'sports',
-      name: 'Sports Group',
-      description: 'Campus teams',
-      icon: 'SP',
-      kind: 'activity',
-      memberCount: 1,
-    };
-    let memberLoadCount = 0;
-    const fetchMock = vi.fn(async (path, request = {}) => {
-      if (path === '/api/groups') {
-        return new Response(JSON.stringify({ groups: [group] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      if (path === '/api/students') {
-        return new Response(JSON.stringify({
-          students: [{ id: 7, name: 'Asha Rao', email: 'asha@demo.edu', year: 1 }],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (path === '/api/groups/5/members' && request.method !== 'PUT') {
-        memberLoadCount += 1;
-        if (memberLoadCount === 1) {
-          return new Response(JSON.stringify({
-            error: { code: 'unavailable', message: 'Members are temporarily unavailable.' },
-          }), { status: 503, headers: { 'Content-Type': 'application/json' } });
-        }
-        return new Response(JSON.stringify({
-          group,
-          memberIds: [7],
-          students: [{ id: 7, name: 'Asha Rao', email: 'asha@demo.edu', year: 1 }],
-        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (path === '/api/groups/5/members' && request.method === 'PUT') {
-        return new Response(JSON.stringify({ group, memberIds: [7], students: [] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      throw new Error(`Unexpected request: ${path} ${request.method || 'GET'}`);
+  it('does not approve requests when group management fails to load', async () => {
+    const group = {id:5,name:'Sports Group',kind:'activity',canManage:true,department:'',category:'community'};
+    let loads=0;
+    const fetchMock=vi.fn(async(path,request={})=>{
+      let payload={}; let status=200;
+      if(path==='/api/groups')payload={groups:[group]};
+      else if(path==='/api/academics')payload={classes:[],subjects:[]};
+      else if(path==='/api/community/requests')payload={requests:[]};
+      else if(path==='/api/community/groups/5'){
+        loads++;
+        if(loads===1){status=503;payload={error:{message:'Members are temporarily unavailable.'}};}
+        else payload={group,facultyIds:[1],invitations:[],requests:loads===2?[{id:8,student_id:7,name:'Asha Rao',email:'asha@demo.edu'}]:[]};
+      }else if(path==='/api/community/join-requests/8/review')payload={ok:true};
+      else if(path==='/api/platform/notifications')payload={notifications:[],unread:0};
+      else throw new Error(`Unexpected request: ${path}`);
+      return new Response(JSON.stringify(payload),{status,headers:{'Content-Type':'application/json'}});
     });
-    vi.stubGlobal('fetch', fetchMock);
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-    const user = userEvent.setup();
-
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/faculty/groups']}>
-          <Routes>
-            <Route
-              path="/faculty/*"
-              element={(
-                <FacultyPortal
-                  user={{ id: 1, name: 'Dr. Meera Shah', email: 'faculty@demo.edu', role: 'faculty' }}
-                  onLogout={vi.fn()}
-                />
-              )}
-            />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-
-    await user.click(await screen.findByRole('button', { name: /manage/i }));
+    vi.stubGlobal('fetch',fetchMock);
+    const client=new QueryClient({defaultOptions:{queries:{retry:false},mutations:{retry:false}}});
+    const user=userEvent.setup();
+    render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/faculty/groups']}><Routes><Route path="/faculty/*" element={<FacultyPortal user={{id:1,name:'Dr Meera Shah',role:'faculty'}} onLogout={vi.fn()}/>} /></Routes></MemoryRouter></QueryClientProvider>);
+    await user.click(await screen.findByRole('button',{name:/^manage/i}));
     expect(await screen.findByText(/members are temporarily unavailable/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /save 0 members/i })).toBeDisabled();
-    expect(fetchMock.mock.calls.some(([path, request]) => (
-      path === '/api/groups/5/members' && request.method === 'PUT'
-    ))).toBe(false);
-
-    await user.click(screen.getByRole('button', { name: /try again/i }));
-    expect(await screen.findByRole('checkbox', { name: /asha rao/i })).toBeChecked();
-    const saveButton = screen.getByRole('button', { name: /save 1 member/i });
-    expect(saveButton).toBeEnabled();
-    await user.click(saveButton);
-
-    await waitFor(() => {
-      const updateCall = fetchMock.mock.calls.find(([path, request]) => (
-        path === '/api/groups/5/members' && request.method === 'PUT'
-      ));
-      expect(JSON.parse(updateCall[1].body)).toEqual({ studentIds: [7] });
+    expect(screen.queryByRole('button',{name:'Approve Asha Rao'})).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([_path,req])=>req?.method==='POST')).toBe(false);
+    await user.click(screen.getByRole('button',{name:'Retry group management'}));
+    await user.click(await screen.findByRole('button',{name:'Approve Asha Rao'}));
+    await waitFor(()=>{
+      const call=fetchMock.mock.calls.find(([path])=>path==='/api/community/join-requests/8/review');
+      expect(call).toBeTruthy();expect(JSON.parse(call[1].body)).toEqual({decision:'approve'});
     });
   });
 });

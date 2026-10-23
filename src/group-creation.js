@@ -7,13 +7,14 @@ function groupOptions(db) {
   const students = db.prepare(`SELECT u.id,u.name,u.email,u.year,coalesce(p.department,'') department,coalesce(p.section,'') section
     FROM users u LEFT JOIN user_profiles p ON p.user_id=u.id WHERE u.role='student' AND u.disabled=0 ORDER BY u.name,u.id`).all();
   const memberships = db.prepare('SELECT student_id,group_id FROM student_group_memberships').all();
+  const faculty = db.prepare("SELECT u.id,u.name,u.email,coalesce(p.department,'') department FROM users u LEFT JOIN user_profiles p ON p.user_id=u.id WHERE u.role='faculty' AND u.disabled=0 ORDER BY u.name").all().map(f => ({ ...f, designations: require('./group-governance').designations(db,f.id) }));
   const groupsByStudent = new Map();
   for (const row of memberships) { if (!groupsByStudent.has(row.student_id)) groupsByStudent.set(row.student_id, []); groupsByStudent.get(row.student_id).push(row.group_id); }
-  return { students: students.map((student) => ({ ...student, groupIds: groupsByStudent.get(student.id) || [] })),
-    groups: db.prepare("SELECT id,name FROM groups WHERE kind != 'role' ORDER BY name").all() };
+  return { faculty, students: students.map((student) => ({ ...student, groupIds: groupsByStudent.get(student.id) || [] })),
+    groups: db.prepare("SELECT id,name,department,parent_group_id FROM groups WHERE kind != 'role' ORDER BY name").all().map(g => ({...g,department:require('./group-governance').managerDepartment(db,g)})) };
 }
 
-function createGroup(db, user, input) {
+function normalizeGroup(user, input) {
   const body = requireObject(input);
   const name = cleanString(body.name, 'name', { min: 2, max: user.role === 'admin' ? 100 : 80 });
   const description = cleanString(body.description ?? '', 'description', { max: user.role === 'admin' ? 500 : 240 });
@@ -27,6 +28,22 @@ function createGroup(db, user, input) {
   const parentGroupId = body.parentGroupId === undefined || body.parentGroupId === null || body.parentGroupId === '' ? null : cleanInteger(body.parentGroupId, 'parentGroupId', { min: 1 });
   const autoAddMatches = cleanBoolean(body.autoAddMatches, 'autoAddMatches', true);
   const ids = cleanIdArray(body.memberStudentIds ?? [], 'memberStudentIds', { max: 500 });
+  const category = body.category ?? 'community';
+  assert(['community','club','sports','exam'].includes(category), 400, 'validation_error', 'Choose a valid group category.');
+  return { name, description, icon, kind, joinable, year, department, section, parentGroupId, autoAddMatches, memberStudentIds: ids, category,
+    facultyIds: cleanIdArray(body.facultyIds ?? (user.role === 'faculty' ? [user.id] : []), 'facultyIds', { max: 50 }),
+    studentManagerId: body.studentManagerId || null, sportsType: cleanString(body.sportsType ?? '', 'sportsType', { max: 80 }), sportsName: cleanString(body.sportsName ?? '', 'sportsName', { max: 80 }) };
+}
+function validateProposal(db, body) {
+  assert(!db.prepare('SELECT 1 FROM groups WHERE slug=? OR name=?').get(slugify(body.name),body.name),409,'group_exists','A group with this name already exists.');
+  if (body.parentGroupId) assert(db.prepare("SELECT 1 FROM groups WHERE id=? AND kind!='role'").get(body.parentGroupId),400,'validation_error','Choose an available parent group.');
+  assert(body.memberStudentIds.every(id => db.prepare("SELECT 1 FROM users WHERE id=? AND role='student' AND disabled=0").get(id)),400,'validation_error','Choose enabled student accounts.');
+  assert(body.memberStudentIds.every(id => require('./academics').matchesProfile(db,id,{year:body.year,department:body.department,section:body.section,parent_group_id:body.parentGroupId})),400,'class_mismatch','Choose students whose profiles match this audience.');
+}
+function createGroup(db, user, input) {
+  assert(user.role === 'admin', 403, 'approval_required', 'Faculty must submit a group request for administrator approval.');
+  const body = normalizeGroup(user, input);
+  const { name, description, icon, kind, joinable, year, department, section, parentGroupId, autoAddMatches, memberStudentIds: ids } = body;
   const slug = slugify(name);
   const id = db.transaction(() => {
     assert(!db.prepare('SELECT 1 FROM groups WHERE slug=? OR name=?').get(slug, name), 409, 'group_exists', 'A group with this name already exists.');
@@ -48,6 +65,7 @@ function createGroup(db, user, input) {
     const result = db.prepare(`INSERT INTO groups(slug,name,description,icon,kind,joinable,year,department,section,parent_group_id,creator_faculty_id,created_at)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(slug, name, description, icon, kind, +joinable, year, department, section, parentGroupId, user.id, now);
     const groupId = Number(result.lastInsertRowid);
+    require('./group-governance').saveGovernance(db, { id: groupId, department, parent_group_id:parentGroupId }, body);
     const add = db.prepare("INSERT INTO student_group_memberships(student_id,group_id,source,joined_at) VALUES(?,?,'faculty',?)");
     for (const memberId of selected) add.run(memberId, groupId, now);
     require('./admin').audit(db, { actorId: user.id, action: 'group.created', resource: 'group', resourceId: groupId, metadata: { members: selected.size } });
@@ -55,4 +73,4 @@ function createGroup(db, user, input) {
   })();
   return getGroup(db, id);
 }
-module.exports = { createGroup, groupOptions };
+module.exports = { createGroup, groupOptions, normalizeGroup, validateProposal };

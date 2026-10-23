@@ -31,7 +31,9 @@ test('keeps discovery filters and display preferences after reload', async ({ pa
   await page.goto('/student/campus');
   await page.getByRole('button', { name: 'Achievements', exact: true }).click();
   await page.getByRole('button', { name: 'My posts', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'My posts', exact: true })).toHaveAttribute('aria-pressed','true');
   await page.getByRole('searchbox', { name: 'Search campus posts' }).fill('Robotics');
+  await expect(page).toHaveURL(url => url.searchParams.get('view') === 'mine' && url.searchParams.get('q') === 'Robotics');
   await page.reload();
   await expect(page.getByRole('button', { name: 'Achievements', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'My posts', exact: true })).toHaveAttribute('aria-pressed', 'true');

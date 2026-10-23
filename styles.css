@@ -3643,3 +3643,13 @@ dialog.release-dialog { width: min(460px, calc(100vw - 28px)); max-height: calc(
 .academic-staff {display:flex;align-items:center;gap:12px;margin:16px 0}
 .academic-staff input {width:20px;height:20px}
 @media(max-width:640px){.academic-panel{padding:16px}.academic-editor-grid{grid-template-columns:1fr}.academic-material{align-items:flex-start;flex-direction:column}.academic-panel .section-heading{flex-wrap:wrap;gap:12px}}
+
+.group-invite-preview {display:grid;gap:12px;margin:20px 0;max-width:100%}
+.group-invite-preview img {display:block;max-width:100%;height:auto;background:white;border-radius:12px}
+.group-invite-preview a {color:var(--secondary);overflow-wrap:anywhere}
+.academic-panel fieldset {min-width:0}
+.academic-panel .filter-row {flex-wrap:wrap}
+
+.academic-class-card {min-width:0;flex:1 1 180px;max-width:100%}
+.academic-subject-links {display:grid;gap:8px;margin:12px 0}
+.academic-subject-links a {padding:10px 14px;background:var(--surface-2)}

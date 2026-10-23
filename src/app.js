@@ -214,6 +214,7 @@ function createApplication(options = {}) {
   app.use((req, _res, next) => {
     try { if (req.user?.role === 'student') require('./academics').syncStudent(db, req.user.id); next(); } catch (error) { next(error); }
   });
+  app.use('/api/community', require('./group-governance').governanceRouter(db));
   app.use('/api/academics', require('./academics').academicsRouter(db));
   app.use('/api/discussions', require('./discussions').discussionsRouter(db));
   app.use('/api/posts', require('./campus').campusRouter(db));
@@ -365,7 +366,7 @@ function createApplication(options = {}) {
           addMembership.run(id, group.id, 'automatic', now);
         }
         for (const group of activityGroups) {
-          addMembership.run(id, group.id, 'self', now);
+          require('./group-governance').requestJoin(db, { id, role: 'student' }, group.id);
         }
         return id;
       })();
@@ -415,7 +416,12 @@ function createApplication(options = {}) {
 
   app.get('/api/groups/create-options', requireRole('faculty'), (_req, res) => res.json(require('./group-creation').groupOptions(db)));
   app.post('/api/groups', requireRole('faculty'), (req, res) => {
-    res.status(201).json({ group: require('./group-creation').createGroup(db, req.user, req.body) });
+    const payload = require('./group-creation').normalizeGroup(req.user, req.body);
+    require('./group-creation').validateProposal(db,payload);
+    assert(db.prepare("SELECT count(*) n FROM group_creation_requests WHERE faculty_id=? AND status='pending'").get(req.user.id).n < 20, 429, 'request_limit', 'Wait for your pending requests to be reviewed.');
+    const result = db.prepare('INSERT INTO group_creation_requests(faculty_id,payload,created_at) VALUES(?,?,?)').run(req.user.id, JSON.stringify(payload), utcNow());
+    require('./admin').audit(db,{actorId:req.user.id,action:'group.requested',resource:'group-request',resourceId:result.lastInsertRowid});
+    res.status(201).json({ requestId: Number(result.lastInsertRowid), status: 'pending' });
   });
 
   app.get('/api/memberships', requireRole('student'), (req, res) => {
@@ -440,11 +446,7 @@ function createApplication(options = {}) {
       );
       assert(require('./academics').matchesProfile(db, req.user.id, row), 403, 'class_forbidden', 'This group is for another academic class.');
       if (joined) {
-        db.prepare(`
-          INSERT OR IGNORE INTO student_group_memberships
-            (student_id, group_id, source, joined_at)
-          VALUES (?, ?, 'self', ?)
-        `).run(req.user.id, groupId, utcNow());
+        require('./group-governance').requestJoin(db, req.user, groupId);
       } else {
         db.prepare(
           'DELETE FROM student_group_memberships WHERE student_id = ? AND group_id = ?',
@@ -474,14 +476,9 @@ function createApplication(options = {}) {
           DELETE FROM student_group_memberships
           WHERE student_id = ?
             AND group_id IN (SELECT id FROM groups WHERE joinable = 1)
-        `).run(req.user.id);
-        const add = db.prepare(`
-          INSERT INTO student_group_memberships
-            (student_id, group_id, source, joined_at)
-          VALUES (?, ?, 'self', ?)
-        `);
-        const now = utcNow();
-        for (const groupId of groupIds) add.run(req.user.id, groupId, now);
+            AND group_id NOT IN (SELECT value FROM json_each(?))
+        `).run(req.user.id, JSON.stringify(groupIds));
+        for (const groupId of groupIds) require('./group-governance').requestJoin(db, req.user, groupId);
       })();
       const memberships = getMembershipGroups(db, req.user.id);
       res.json({ groupIds: memberships.map((group) => group.id), memberships });
@@ -491,6 +488,7 @@ function createApplication(options = {}) {
   app.get('/api/groups/:id/members', requireRole('faculty'), (req, res) => {
     const groupId = cleanInteger(req.params.id, 'id', { min: 1 });
     const group = getGroup(db, groupId);
+    assert(require('./group-governance').canManage(db, req.user, groupId), 403, 'group_forbidden', 'Only assigned faculty managers can view or edit group members.');
     if (!group) throw new ApiError(404, 'group_not_found', 'Group was not found.');
     const students = db
       .prepare(`
@@ -520,6 +518,7 @@ function createApplication(options = {}) {
     asyncRoute(async (req, res) => {
       const groupId = cleanInteger(req.params.id, 'id', { min: 1 });
       const row = db.prepare('SELECT * FROM groups WHERE id = ?').get(groupId);
+      assert(require('./group-governance').canManage(db, req.user, groupId), 403, 'group_forbidden', 'Only assigned faculty managers can edit group members.');
       if (!row) throw new ApiError(404, 'group_not_found', 'Group was not found.');
       assert(
         !row.academic_level && ['activity', 'custom'].includes(row.kind),
@@ -870,7 +869,7 @@ function createApplication(options = {}) {
       const normalizedPath = normalizeRequestPath(req.path);
       if (!normalizedPath) return next();
       const isFrontendRoute =
-        normalizedPath === '/' ||
+        normalizedPath === '/' || normalizedPath.startsWith('/join/') ||
         normalizedPath === '/faculty' ||
         normalizedPath.startsWith('/faculty/') ||
         normalizedPath === '/student' ||

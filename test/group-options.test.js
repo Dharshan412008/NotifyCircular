@@ -16,14 +16,16 @@ it('creates faculty/admin groups with persisted options and exactly the chosen a
     const ravi = options.students.find((s) => s.email === 'ravi@demo.edu');
     const parent = options.groups.find((g) => g.name === 'Whole College');
     const members = (id) => app.db.prepare('SELECT student_id FROM student_group_memberships WHERE group_id=? ORDER BY student_id').all(id).map((r) => r.student_id);
-    const empty = (await faculty.post('/api/groups').send({ name: 'Empty community' }).expect(201)).body.group;
+    const create = async (agent,base,payload) => { const result=(await agent.post(base).send(payload).expect(201)).body; return result.group || (await admin.post(`/api/community/requests/${result.requestId}/review`).send({decision:'approve'}).expect(200)).body.group; };
+    const empty = await create(faculty,'/api/groups',{name:'Empty community'});
     assert.deepEqual(members(empty.id), []);
-    const manual = (await faculty.post('/api/groups').send({ name: 'Manual community', memberStudentIds: [ravi.id] }).expect(201)).body.group;
+    const manual = await create(faculty,'/api/groups',{name:'Manual community',memberStudentIds:[ravi.id]});
     assert.deepEqual(members(manual.id), [ravi.id]);
     await student.put('/api/platform/profile').send({ name: 'Asha Rao', department: 'Computing', section: 'A', register_number: '', program: '', academic_year: '', bio: '' }).expect(200);
+    await faculty.put('/api/platform/profile').send({ name:'Dr Meera Shah',department:'Computing',section:'',register_number:'',program:'',academic_year:'',bio:'' }).expect(200);
     for (const [agent, base, suffix] of [[faculty, '/api/groups', 'Faculty'], [admin, '/api/admin/groups', 'Admin']]) {
       const payload = { name: `${suffix} computing group`, description: 'Section A workshops', icon: 'CS', kind: 'activity', joinable: false, year: 1, department: 'computing', section: 'a', parentGroupId: parent.id, memberStudentIds: [asha.id] };
-      const group = (await agent.post(base).send(payload).expect(201)).body.group;
+      const group = await create(agent,base,payload);
       assert.equal(group.section, 'a'); assert.equal(group.year, 1); assert.equal(group.department, 'computing');
       assert.equal(group.kind, 'activity'); assert.equal(group.joinable, false); assert.equal(group.icon, 'CS');
       assert.deepEqual(members(group.id), [asha.id]);

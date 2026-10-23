@@ -1,3 +1,4 @@
+import { StudentCommunities } from './CommunityTools.jsx';
 import StudyMaterials, { AcademicCommunity } from './Academics.jsx';
 import { lazy, Suspense } from 'react';
 import { RouteLoading } from './RouteBoundary';
@@ -476,167 +477,6 @@ function EventsView({ user }) {
   return <section><div className="section-heading"><div><p className="overline">Plan your campus week</p><h3>Upcoming events</h3></div></div>{query.isPending && <LoadingCards label="Loading upcoming events" />}{query.isError && <ErrorState error={query.error} fallback="Could not load upcoming events." />}{query.isSuccess && <EventCalendar events={query.data || []} role="student" onOpen={(event) => navigate(`/student/circulars/${event.id}`)} />}</section>;
 }
 
-function MembershipView({ user }) {
-  const queryClient = useQueryClient();
-  const [selectedIds, setSelectedIds] = useState(() => new Set());
-
-  const groupsQuery = useQuery({
-    queryKey: groupsKey(user.id),
-    queryFn: async () => {
-      const payload = await apiRequest('/api/groups');
-      return Array.isArray(payload.groups) ? payload.groups : [];
-    },
-  });
-  const membershipsQuery = useQuery({
-    queryKey: membershipsKey(user.id),
-    queryFn: async () => {
-      const payload = await apiRequest('/api/memberships');
-      return Array.isArray(payload.groupIds) ? payload.groupIds.map(Number) : [];
-    },
-  });
-
-  const joinableGroups = useMemo(
-    () => (groupsQuery.data || []).filter((group) => group.joinable === true),
-    [groupsQuery.data],
-  );
-  const automaticGroups = useMemo(() => {
-    const membershipIds = new Set((membershipsQuery.data || []).map(Number));
-    return (groupsQuery.data || []).filter((group) => (
-      group.joinable !== true
-      && !group.academicLevel
-      && (group.isMember === true || membershipIds.has(Number(group.id)))
-    ));
-  }, [groupsQuery.data, membershipsQuery.data]);
-  const membershipSignature = useMemo(
-    () => (membershipsQuery.data || []).map(Number).sort((left, right) => left - right).join(','),
-    [membershipsQuery.data],
-  );
-
-  useEffect(() => {
-    if (!groupsQuery.isSuccess || !membershipsQuery.isSuccess) return;
-    const memberships = new Set((membershipsQuery.data || []).map(Number));
-    setSelectedIds(new Set(
-      joinableGroups
-        .filter((group) => memberships.has(Number(group.id)) || group.isMember === true)
-        .map((group) => Number(group.id)),
-    ));
-  }, [groupsQuery.isSuccess, joinableGroups, membershipSignature, membershipsQuery.data, membershipsQuery.isSuccess]);
-
-  const saveMutation = useMutation({
-    mutationFn: async (groupIds) => apiRequest('/api/memberships', {
-      method: 'PUT',
-      body: { groupIds },
-    }),
-    onSuccess: async (payload) => {
-      const returnedIds = Array.isArray(payload.groupIds)
-        ? payload.groupIds.map(Number)
-        : [...selectedIds];
-      queryClient.setQueryData(membershipsKey(user.id), returnedIds);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: groupsKey(user.id) }),
-        queryClient.invalidateQueries({ queryKey: inboxKey(user.id) }),
-      ]);
-    },
-  });
-
-  const toggleGroup = (groupId, checked) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (checked) next.add(Number(groupId));
-      else next.delete(Number(groupId));
-      return next;
-    });
-  };
-
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    const joinableIds = new Set(joinableGroups.map((group) => Number(group.id)));
-    const groupIds = [...selectedIds].filter((id) => joinableIds.has(Number(id)));
-    saveMutation.mutate(groupIds);
-  };
-
-  const isLoading = groupsQuery.isPending || membershipsQuery.isPending;
-  const queryError = groupsQuery.error || membershipsQuery.error;
-
-  return (
-    <section aria-labelledby="studentGroupsTitle">
-      <AcademicCommunity user={user} />
-      <div className="section-heading">
-        <div>
-          <p className="overline">Your audience</p>
-          <h3 id="studentGroupsTitle">Group memberships</h3>
-        </div>
-      </div>
-      <p className="view-intro">
-        Your year, department and section follow your saved profile. Choose related activity groups below.
-      </p>
-
-      {isLoading ? <LoadingCards label="Loading group memberships" /> : null}
-      {queryError ? (
-        <ErrorState error={queryError} fallback="Could not load your memberships." />
-      ) : null}
-      {!isLoading && !queryError && !automaticGroups.length && !joinableGroups.length ? (
-        <EmptyState
-          title="No memberships found"
-          copy="Your assigned groups will appear here after registration is complete."
-          icon={Users}
-        />
-      ) : null}
-      {!isLoading && !queryError && (automaticGroups.length || joinableGroups.length) ? (
-        <form id="membershipForm" onSubmit={handleSubmit}>
-          <div className="card-list">
-            {automaticGroups.map((group) => (
-              <label className="membership-switch is-locked" key={group.id}>
-                <span className="group-monogram">{group.icon || initials(group.name)}</span>
-                <span className="group-card-copy">
-                  <strong>{group.name}</strong>
-                  <small>{group.description || 'Assigned automatically'}</small>
-                </span>
-                <input type="checkbox" checked disabled aria-label={`${group.name}, assigned automatically`} />
-              </label>
-            ))}
-            {joinableGroups.map((group) => (
-              <label className="membership-switch" key={group.id}>
-                <span className="group-monogram">{group.icon || initials(group.name)}</span>
-                <span className="group-card-copy">
-                  <strong>{group.name}</strong>
-                  <small>{group.description || 'Optional activity group'}</small>
-                </span>
-                <input
-                  type="checkbox"
-                  name="groupIds"
-                  value={group.id}
-                  checked={selectedIds.has(Number(group.id))}
-                  disabled={saveMutation.isPending}
-                  onChange={(event) => toggleGroup(group.id, event.target.checked)}
-                />
-              </label>
-            ))}
-          </div>
-          {saveMutation.isError ? (
-            <ErrorState error={saveMutation.error} fallback="Could not save memberships." />
-          ) : null}
-          {saveMutation.isSuccess ? (
-            <p className="auth-security" role="status">
-              <Check aria-hidden="true" /> Activity groups saved.
-            </p>
-          ) : null}
-          {joinableGroups.length ? (
-            <button
-              className={`primary-button${saveMutation.isPending ? ' is-loading' : ''}`}
-              type="submit"
-              disabled={saveMutation.isPending}
-              aria-busy={saveMutation.isPending}
-            >
-              Save activity groups
-            </button>
-          ) : null}
-        </form>
-      ) : null}
-    </section>
-  );
-}
-
 function PushNotificationControl() {
   const [pushState, setPushState] = useState({
     kind: 'checking',
@@ -1044,7 +884,7 @@ export default function StudentPortal({ user, onLogout }) {
       <Route element={<StudentShell user={user} />}>
         <Route index element={<InboxView user={user} />} />
         <Route path="materials" element={<StudyMaterials user={user} />} />
-        <Route path="groups" element={<MembershipView user={user} />} />
+        <Route path="groups" element={<StudentCommunities user={user} />} />
         <Route path="campus" element={<CampusFeed user={user} />} />
           <Route path="discussions" element={<Discussions user={user} />} />
         <Route path="events" element={<EventsView user={user} />} />

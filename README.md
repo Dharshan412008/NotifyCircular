@@ -68,7 +68,7 @@ Faculty can choose **New faculty? Create an account** in the Faculty portal to r
 - Email/password sign-in with persisted sessions and server-enforced portal roles; optional college OTP or Google verification.
 - Verified first-time students receive Whole College membership; academic year is assigned by administrators.
 - Optional activity memberships that students can update themselves.
-- Faculty-created custom or activity groups with explicit student membership management.
+- Administrator-approved faculty group requests, assigned faculty managers, and approval-based invitation memberships.
 - Multi-group circular targeting.
 - Server-side audience resolution and membership-filtered student inboxes.
 - Socket.IO invalidation so an eligible signed-in student sees a new circular without polling.
@@ -104,7 +104,7 @@ Analytics now includes reporting periods, unique audience reach, daily activity,
 
 Portals, analytics, dashboards and Circular Studio load on demand, reducing the initial download. Loading indicators provide feedback, and a screen failure offers a reload action. Opening an uncached screen requires a connection.
 
-Group creation in the faculty and admin portals includes type, description, icon, study year, department, section, parent group, explicit student selection, and independent self-joining permissions. A preview counts selected members without duplicates. Automatic matching adds current students once at creation and requires at least one filter; with no filters, only explicitly selected students are added.
+Faculty submit group proposals and administrators review them before creation. Group settings include category, description, icon, optional study year, department, section, parent group, selected students, and assigned faculty managers. Student joins need approval. See [groups and invitations](docs/GROUP_APPROVALS.md) for clubs, sports, multiple staff designations, QR invitations and manager permissions. A preview counts selected members without duplicates. Automatic matching adds current students once at creation and requires at least one filter; with no filters, only explicitly selected students are added.
 
 ## Registration details
 

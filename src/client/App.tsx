@@ -19,6 +19,7 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 
 import { apiRequest, AUTH_EXPIRED_EVENT } from './api.js';
 import AuthScreen from './components/AuthScreen.jsx';
+const InvitationJoin = lazy(() => import('./components/CommunityTools.jsx').then(m => ({ default: m.InvitationJoin })));
 const FacultyPortal = lazy(() => import('./components/FacultyPortal.jsx'));
 const FacultyDemo = lazy(() => import('./components/FacultyDemo.jsx'));
 const StudentPortal = lazy(() => import('./components/StudentPortal.jsx'));
@@ -296,6 +297,7 @@ export default function App() {
             />
           )}
         />
+        <Route path="/join/:token" element={session.isPending ? <LoadingScreen /> : user ? <InvitationJoin user={user} /> : <AuthScreen role="student" onAuthenticated={handleAuthenticated} />} />
         <Route path="/faculty/*" element={portal('faculty')} />
         <Route path="/student/*" element={portal('student')} />
         <Route path="/admin/*" element={portal('admin')} />

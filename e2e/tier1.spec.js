@@ -59,9 +59,10 @@ test('student login receives only its membership-filtered inbox', async ({ page 
   await page.waitForTimeout(250);
   await page.screenshot({ path: testInfo.outputPath('student-inbox.png'), fullPage: true });
   await page.getByRole('button', { name: 'Groups' }).click();
-  await expect(page.getByRole('checkbox', { name: /first year, assigned automatically/i })).toBeDisabled();
-  await expect(page.getByRole('checkbox', { name: /whole college, assigned automatically/i })).toBeDisabled();
-  await expect(page.getByRole('checkbox', { name: /sports group/i })).toBeChecked();
+  await expect(page.getByRole('heading', { name:'First Year', exact:true })).toBeVisible();
+  await expect(page.getByRole('heading', { name:'Whole College', exact:true })).toBeVisible();
+  await expect(page.getByRole('button', { name:'Leave First Year', exact:true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name:'Leave Sports Group', exact:true })).toBeVisible();
 });
 
 test('college login remains usable on a short mobile viewport', async ({ page }, testInfo) => {

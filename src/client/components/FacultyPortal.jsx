@@ -1,3 +1,4 @@
+import { GroupRequests, GroupManagement } from './CommunityTools.jsx';
 import StudyMaterials, { AcademicCommunity } from './Academics.jsx';
 import { lazy, Suspense } from 'react';
 import { RouteLoading } from './RouteBoundary';
@@ -359,7 +360,7 @@ function CircularComposer({ groupsQuery }) {
         if (controller.signal.aborted || sequence !== analysisSequenceRef.current) return;
 
         const eligibleGroups = new Map(
-          groups.filter((group) => group.kind !== 'role').map((group) => [Number(group.id), group]),
+          groups.filter((group) => group.kind !== 'role' && group.kind !== 'broadcast').map((group) => [Number(group.id), group]),
         );
         const nextSuggestions = (Array.isArray(payload?.suggestedGroups) ? payload.suggestedGroups : [])
           .map((suggestion) => {
@@ -1041,112 +1042,29 @@ function SentCircularDetail({ user }) {
 }
 
 function MemberEditor({ group, open, onClose }) {
-  const queryClient = useQueryClient();
-  const [selected, setSelected] = useState(() => new Set());
-  const membersQuery = useQuery({
-    queryKey: ['group-members', group?.id],
-    queryFn: () => apiRequest(`/api/groups/${group.id}/members`),
-    enabled: Boolean(open && group),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ groupId, studentIds }) => apiRequest(`/api/groups/${groupId}/members`, {
-      method: 'PUT',
-      body: { studentIds },
-    }),
-    onSuccess: async (_payload, variables) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['groups', 'faculty'] }),
-        queryClient.invalidateQueries({ queryKey: ['group-members', variables.groupId] }),
-      ]);
-      onClose();
-    },
-  });
-
-  useEffect(() => {
-    setSelected(new Set());
-    updateMutation.reset();
-  }, [group?.id]);
-
-  useEffect(() => {
-    if (!open || !group || membersQuery.isError) {
-      setSelected(new Set());
-      return;
-    }
-    if (membersQuery.isSuccess) {
-      const memberIds = Array.isArray(membersQuery.data?.memberIds)
-        ? membersQuery.data.memberIds
-        : [];
-      setSelected(new Set(memberIds));
-    }
-  }, [group?.id, membersQuery.data, membersQuery.isError, membersQuery.isSuccess, open]);
-
-  function toggle(id) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  return (
-    <Modal open={open} onClose={onClose} eyebrow="Memberships" title={group ? `Manage ${group.name}` : 'Manage members'}>
-      <div className="option-list member-list">
-        {membersQuery.isPending || membersQuery.isFetching ? <LoadingCards count={1} /> : null}
-        {membersQuery.data?.students.map((student) => (
-          <label className="option-row" key={student.id}>
-            <input
-              type="checkbox"
-              checked={selected.has(student.id)}
-              disabled={membersQuery.isFetching || updateMutation.isPending}
-              onChange={() => toggle(student.id)}
-            />
-            <span className="avatar small-avatar">{initials(student.name)}</span>
-            <span className="option-copy"><strong>{student.name}</strong><small>Year {student.year} | {student.email}</small></span>
-            <span className="option-check"><Check /></span>
-          </label>
-        ))}
-      </div>
-      {membersQuery.isError && (
-        <div className="form-error" role="alert">
-          <span>{getErrorMessage(membersQuery.error, 'Could not load group members.')}</span>
-          {' '}
-          <button className="text-button" type="button" disabled={membersQuery.isFetching} onClick={() => membersQuery.refetch()}>
-            <RefreshCw /> Try again
-          </button>
-        </div>
-      )}
-      {updateMutation.isError && <p className="form-error" role="alert">{getErrorMessage(updateMutation.error)}</p>}
-      <button
-        className="primary-button"
-        type="button"
-        disabled={!group || !membersQuery.isSuccess || membersQuery.isFetching || updateMutation.isPending}
-        onClick={() => updateMutation.mutate({ groupId: group.id, studentIds: [...selected] })}
-      >
-        {updateMutation.isPending ? 'Saving...' : `Save ${selected.size} member${selected.size === 1 ? '' : 's'}`}
-      </button>
-    </Modal>
-  );
+  return <Modal open={open} onClose={onClose} eyebrow="Membership approvals" title={group ? `Manage ${group.name}` : 'Manage group'}>{group && <GroupManagement groupId={group.id} role="faculty" />}</Modal>;
 }
 
 function GroupDirectory({ groupsQuery, user }) {
+  const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState(null);
   const groups = groupsQuery.data?.groups || [];
 
   return (
     <section className="tab-view" aria-labelledby="groups-heading">
+      {groups.filter(g => g.kind === 'broadcast').map(g => <article className="academic-panel" key={g.id}><h3>{g.name}</h3><p>{g.description}</p><button className="secondary-button" onClick={() => navigate(`/faculty/discussions?channel=${g.id}`)}>Open college community</button></article>)}
       <AcademicCommunity user={user} />
+      <GroupRequests role="faculty" />
       <div className="section-heading">
         <div><p className="overline">Audience directory</p><h3 id="groups-heading">Groups & memberships</h3></div>
-        <button className="round-add" type="button" aria-label="Create group" onClick={() => setCreateOpen(true)}><Plus /></button>
+        <button className="round-add" type="button" aria-label="Request group" onClick={() => setCreateOpen(true)}><Plus /></button>
       </div>
-      <p className="view-intro">Create communities, activity groups, or focused subgroups such as Final Year Mechanical, EEE, and IT.</p>
+      <p className="view-intro">Request a community, club, sports group, or committee. An administrator reviews your request before creation. Assigned faculty can invite students and approve matching membership requests.</p>
       <div className="card-list">
         {groupsQuery.isPending && <LoadingCards />}
         {groupsQuery.isError && <EmptyState title="Groups unavailable" copy={getErrorMessage(groupsQuery.error)} />}
-        {groups.filter((group) => group.kind !== 'role').map((group) => (
+        {groups.filter((group) => group.kind !== 'role' && group.kind !== 'broadcast').map((group) => (
           <article className="group-card" key={group.id}>
             <div className="group-card-main">
               <span className="group-mark">{group.icon}</span>
@@ -1155,7 +1073,7 @@ function GroupDirectory({ groupsQuery, user }) {
             </div>
             <div className="group-card-footer">
               <span>{group.kind === 'year' || group.kind === 'broadcast' ? 'Automatic membership' : `${group.memberCount ?? 0} student${group.memberCount === 1 ? '' : 's'}`}</span>
-              {!group.academicLevel && MANAGEABLE_KINDS.has(group.kind) && (
+              {!group.academicLevel && group.canManage && MANAGEABLE_KINDS.has(group.kind) && (
                 <button className="inline-button" type="button" onClick={() => setActiveGroup(group)}>Manage <ArrowRight /></button>
               )}
             </div>

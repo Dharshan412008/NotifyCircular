@@ -87,7 +87,7 @@ describe('Default Permissions in CreateGroupDialog', () => {
     });
   });
 
-  it('defaults joining permission ("Students can join this group") to checked/allowed', async () => {
+  it('defaults joining permission ("Students can request to join") to checked/allowed', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ students: [], groups: [] }),
@@ -99,7 +99,7 @@ describe('Default Permissions in CreateGroupDialog', () => {
       </QueryClientProvider>,
     );
 
-    const joinableCheckbox = screen.getByLabelText(/students can join this group/i);
+    const joinableCheckbox = screen.getByLabelText(/students can request to join/i);
     expect(joinableCheckbox).toBeChecked();
   });
 });

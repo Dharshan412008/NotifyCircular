@@ -384,11 +384,13 @@ function openDatabase(options = {}) {
   enforcePushEndpointOwnership(db);
   require('./platform').migratePlatform(db);
   require('./academics').migrateAcademics(db);
+  require('./group-governance').migrateGovernance(db);
   require('./circular-tools-migration').migrateCircularTools(db);
   // Provision automatic audiences even when demo people/notices are disabled.
   const addGroup = db.prepare(`INSERT OR IGNORE INTO groups(slug,name,description,icon,kind,joinable,year,created_at)
     VALUES(@slug,@name,@description,@icon,@kind,@joinable,@year,@createdAt)`);
   db.transaction(() => { for (const group of BUILT_IN_GROUPS) addGroup.run({ ...group, createdAt: utcNow() }); })();
+  db.prepare("UPDATE groups SET category='sports',sports_type='General',sports_name='College sports' WHERE slug='sports' AND category='community'").run();
   const seedDemo = options.seed ?? (env.NODE_ENV !== 'production' && env.SEED_DEMO_DATA !== 'false');
   if (seedDemo && getSetting(db, 'demo_seed_disabled') !== 'true') {
     seedDatabase(db, options);

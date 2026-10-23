@@ -42,5 +42,9 @@ test('assigns a class, shares subject material, and shows the matching student c
   await page.getByRole('link', { name: 'Download', exact: true }).click();
   expect((await downloadPromise).suggestedFilename()).toBe('unit1.pdf');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await page.goto('/student/groups');
+  await page.getByRole('link', { name: subject, exact: true }).click();
+  await expect(page.getByRole('button', { name:'All subjects', exact:true })).toBeVisible();
+  await expect(page.getByText('Unit 1 notes', { exact:true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('study-materials.png'), fullPage: true });
 });

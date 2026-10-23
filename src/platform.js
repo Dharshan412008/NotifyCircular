@@ -167,7 +167,7 @@ function platformRouter(db) {
     db.prepare(`INSERT INTO notification_preferences VALUES(?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET circular=excluded.circular,event=excluded.event,social=excluded.social,email=excluded.email,digest=excluded.digest`).run(req.user.id, +p.circular, +p.event, +p.social, +p.email, p.digest);
     res.json({ preferences: p });
   });
-  router.get('/profile', (req, res) => res.json({ profile: { ...req.user, ...db.prepare('SELECT * FROM user_profiles WHERE user_id=?').get(req.user.id) } }));
+  router.get('/profile', (req, res) => res.json({ profile: { ...req.user, ...db.prepare('SELECT * FROM user_profiles WHERE user_id=?').get(req.user.id), designations: require('./group-governance').designations(db,req.user.id) } }));
   router.put('/profile', (req, res) => {
     const schema = z.object({ name: z.string().trim().min(2).max(100), register_number: z.string().trim().max(50), department: z.string().trim().max(80), program: z.string().trim().max(80), section: z.string().trim().max(30), academic_year: z.string().trim().max(30), bio: z.string().trim().max(500), phone: z.string().trim().max(25).refine((value) => !value || /^\+?[0-9 ()-]{7,25}$/.test(value) && value.replace(/\D/g, '').length >= 7).optional(), employee_id: z.string().trim().max(50).optional(), designation: z.string().trim().max(80).optional() });
     const parsed = schema.safeParse(req.body); assert(parsed.success, 400, 'validation_error', 'Check the profile fields and try again.');
