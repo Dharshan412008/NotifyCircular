@@ -29,6 +29,13 @@ it('builds profile communities and enforces class staff assignments for subjects
     await student.get('/api/academics/administration').expect(403);
     await faculty.post('/api/academics/subjects').send({ classId: cls.id, name: 'Data Structures' }).expect(403);
     const fid = (await faculty.get('/api/auth/me')).body.user.id;
+    const staffProfile = { ...profile, name: 'Dr Meera Shah', department: ' it ' };
+    await faculty.put('/api/platform/profile').send(staffProfile).expect(200);
+    const otherClass = (await admin.post('/api/academics/classes').send({ year: 2, department: 'ECE', section: 'A' }).expect(201)).body.class;
+    const administration = (await admin.get('/api/academics/administration')).body;
+    assert(administration.classes.find(c => c.id === cls.id).eligibleFacultyIds.includes(fid));
+    assert(!administration.classes.find(c => c.id === otherClass.id).eligibleFacultyIds.includes(fid));
+    await admin.put(`/api/academics/classes/${otherClass.id}/staff`).send({ facultyIds: [fid] }).expect(400);
     await admin.put(`/api/academics/classes/${cls.id}/staff`).send({ facultyIds: [fid] }).expect(200);
     const sid = (await faculty.post('/api/academics/subjects').send({ classId: cls.id, name: 'Data Structures' }).expect(201)).body.id;
     await student.post('/api/academics/subjects').send({ classId: cls.id, name: 'Spoofed' }).expect(403);
@@ -41,6 +48,10 @@ it('builds profile communities and enforces class staff assignments for subjects
     await outsider.get(url).expect(404);
     await request(app.app).get(url).expect(401);
     assert.equal((await student.get('/api/academics')).body.subjects[0].materials[0].title, file.title);
+    await faculty.put('/api/platform/profile').send({ ...staffProfile, department: 'ECE' }).expect(200);
+    await faculty.get(url).expect(404);
+    await faculty.post(`/api/academics/subjects/${sid}/materials`).send(file).expect(403);
+    await faculty.put('/api/platform/profile').send(staffProfile).expect(200);
     await admin.put(`/api/academics/classes/${cls.id}/staff`).send({ facultyIds: [] }).expect(200);
     await faculty.post(`/api/academics/subjects/${sid}/materials`).send(file).expect(403);
     await faculty.get(url).expect(404);

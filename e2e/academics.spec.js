@@ -2,8 +2,14 @@ import { expect, test } from '@playwright/test';
 
 test('assigns a class, shares subject material, and shows the matching student community', async ({ page }, testInfo) => {
   const login = async (email, password) => { await page.request.post('/api/auth/logout'); expect((await page.request.post('/api/auth/login', { data: { email, password } })).ok()).toBeTruthy(); };
+  await login('faculty@demo.edu', 'Faculty123!');
+  await page.request.put('/api/platform/profile', { data: { name: 'Dr. Meera Shah', department: 'IT', section: '', register_number: '', program: '', academic_year: '', bio: '' } });
   await login('admin@demo.edu', 'Admin123!');
+  await page.request.post('/api/academics/classes', { data: { year: 2, department: 'ECE', section: 'A' } });
   await page.goto('/admin/groups');
+  const otherDepartment = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Year 2 · ECE · Section A', exact: true }) });
+  await expect(otherDepartment.getByRole('checkbox', { name: /faculty@demo.edu/ })).toHaveCount(0);
+  await expect(otherDepartment.getByText(/No staff from this department/)).toBeVisible();
   await page.getByLabel('Year', { exact: true }).selectOption('1');
   await page.getByLabel('Department', { exact: true }).fill('IT');
   await page.getByLabel('Section', { exact: true }).fill(testInfo.project.name === 'desktop-edge' ? 'A' : 'B');

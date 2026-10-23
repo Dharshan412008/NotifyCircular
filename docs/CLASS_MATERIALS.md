@@ -8,7 +8,7 @@ Existing students can complete Department and Section under Account settings. Ch
 
 1. Sign in as an administrator and open Groups.
 2. Under Class administration, add each year, department and section needed. Classes also appear automatically when students save a complete academic profile.
-3. Select the faculty accounts for each class and click Save assigned staff. Assignments are administrator-controlled and recorded in the audit history.
+3. Select the faculty accounts for each class and click Save assigned staff. Only active faculty whose saved profile department matches the class department appear in its staff list. Department comparisons ignore letter case and extra spaces. Faculty without a department must complete their profile first. Assignments are administrator-controlled and recorded in the audit history. A later department change immediately blocks access to classes outside that department.
 
 ## Share materials
 

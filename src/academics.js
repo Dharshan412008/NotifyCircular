@@ -69,7 +69,10 @@ function classAccess(db, user, id) {
   const cls = db.prepare('SELECT * FROM academic_classes WHERE id=?').get(id);
   if (!cls) return false;
   if (user.role === 'admin') return true;
-  if (user.role === 'faculty') return Boolean(db.prepare('SELECT 1 FROM teaching_assignments WHERE class_id=? AND faculty_id=?').get(id, user.id));
+  if (user.role === 'faculty') {
+    const profile = db.prepare('SELECT department FROM user_profiles WHERE user_id=?').get(user.id);
+    return normalized(profile?.department) === normalized(cls.department) && Boolean(db.prepare('SELECT 1 FROM teaching_assignments WHERE class_id=? AND faculty_id=?').get(id, user.id));
+  }
   return matchesProfile(db, user.id, cls);
 }
 
@@ -82,7 +85,10 @@ function academicsRouter(db) {
     res.json({ classes, subjects });
   });
   router.get('/administration', requireRole('admin'), (_req, res) => {
-    res.json({ classes: db.prepare('SELECT * FROM academic_classes ORDER BY year,department,section').all(), faculty: db.prepare("SELECT id,name,email FROM users WHERE role='faculty' AND disabled=0 ORDER BY name").all(), assignments: db.prepare('SELECT * FROM teaching_assignments').all() });
+    const faculty = db.prepare("SELECT u.id,u.name,u.email,coalesce(p.department,'') department FROM users u LEFT JOIN user_profiles p ON p.user_id=u.id WHERE u.role='faculty' AND u.disabled=0 ORDER BY u.name").all();
+    const classes = db.prepare('SELECT * FROM academic_classes ORDER BY year,department,section').all().map(cls => ({ ...cls, eligibleFacultyIds: faculty.filter(f => normalized(f.department) === normalized(cls.department)).map(f => f.id) }));
+    const assignments = db.prepare('SELECT * FROM teaching_assignments').all().filter(a => classes.some(c => c.id === a.class_id && c.eligibleFacultyIds.includes(a.faculty_id)));
+    res.json({ classes, faculty, assignments });
   });
   router.post('/classes', requireRole('admin'), (req, res) => {
     const body = requireObject(req.body);
@@ -92,10 +98,12 @@ function academicsRouter(db) {
   router.put('/classes/:id/staff', requireRole('admin'), (req, res) => {
     const id = cleanInteger(req.params.id, 'id', { min: 1 });
     const body = requireObject(req.body);
-    assert(db.prepare('SELECT 1 FROM academic_classes WHERE id=?').get(id), 404, 'not_found', 'Class not found.');
+    const cls = db.prepare('SELECT * FROM academic_classes WHERE id=?').get(id);
+    assert(cls, 404, 'not_found', 'Class not found.');
     assert(Array.isArray(body.facultyIds) && body.facultyIds.length <= 100, 400, 'validation_error', 'Choose assigned staff.');
     const ids = [...new Set(body.facultyIds.map(v => cleanInteger(v, 'facultyId', { min: 1 })))];
     assert(ids.every(fid => db.prepare("SELECT 1 FROM users WHERE id=? AND role='faculty' AND disabled=0").get(fid)), 400, 'validation_error', 'Choose active faculty accounts.');
+    assert(ids.every(fid => normalized(db.prepare('SELECT department FROM user_profiles WHERE user_id=?').get(fid)?.department) === normalized(cls.department)), 400, 'department_mismatch', 'Choose staff from the same department as this class. Staff must complete their department in Account settings.');
     db.transaction(() => {
       db.prepare('DELETE FROM teaching_assignments WHERE class_id=?').run(id);
       for (const fid of ids) db.prepare('INSERT INTO teaching_assignments VALUES(?,?)').run(id, fid);
