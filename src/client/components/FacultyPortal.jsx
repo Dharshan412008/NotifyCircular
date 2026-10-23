@@ -37,7 +37,6 @@ import { apiRequest, getErrorMessage } from '../api.js';
 import Modal from './Modal.jsx';
 import CampusFeed from './CampusFeed.jsx';
 import PortalThemeButton from './PortalThemeButton.jsx';
-const Discussions = lazy(() => import('./Discussions.tsx'));
 const Analytics = lazy(() => import('./Analytics.tsx'));
 const CircularWorkbench = lazy(() => import('./CircularWorkbench.jsx'));
 import PortalNavigation from './PortalNavigation.jsx';
@@ -1053,7 +1052,7 @@ function GroupDirectory({ groupsQuery, user }) {
 
   return (
     <section className="tab-view" aria-labelledby="groups-heading">
-      {groups.filter(g => g.kind === 'broadcast').map(g => <article className="academic-panel" key={g.id}><h3>{g.name}</h3><p>{g.description}</p><button className="secondary-button" onClick={() => navigate(`/faculty/discussions?channel=${g.id}`)}>Open college community</button></article>)}
+      {groups.filter(g => g.kind === 'broadcast').map(g => <article className="academic-panel" key={g.id}><h3>{g.name}</h3><p>{g.description}</p><button className="secondary-button" onClick={() => navigate('/faculty/sent')}>View circulars</button></article>)}
       <AcademicCommunity user={user} />
       <GroupRequests role="faculty" />
       <div className="section-heading">
@@ -1150,11 +1149,10 @@ export default function FacultyPortal({ user, onLogout }) {
           <Route path="sent/:id" element={<SentCircularDetail user={user} />} />
           <Route path="sent" element={<SentCirculars user={user} />} />
           <Route path="campus" element={<CampusFeed user={user} />} />
-          <Route path="discussions" element={<Discussions user={user} />} />
           <Route path="materials" element={<StudyMaterials user={user} />} />
           <Route path="groups" element={<GroupDirectory groupsQuery={groupsQuery} user={user} />} />
           <Route path="account" element={<FacultyAccount user={user} onLogout={onLogout} />} />
-          <Route path="*" element={<Navigate to="compose" replace />} />
+          <Route path="*" element={<Navigate to="/faculty/compose" replace />} />
         </Routes></Suspense>
       </div>
       <PortalNavigation role="faculty" />

@@ -216,7 +216,6 @@ function createApplication(options = {}) {
   });
   app.use('/api/community', require('./group-governance').governanceRouter(db));
   app.use('/api/academics', require('./academics').academicsRouter(db));
-  app.use('/api/discussions', require('./discussions').discussionsRouter(db));
   app.use('/api/posts', require('./campus').campusRouter(db));
   app.use('/api/admin', require('./admin').adminRouter(db));
   app.use('/api/reports', require('./admin').reportsRouter(db));
@@ -237,7 +236,6 @@ function createApplication(options = {}) {
   app.locals.disconnectUserSockets = () => {};
   app.locals.publishCampus = () => {};
   app.locals.publishNotification = () => {};
-  app.locals.publishDiscussion = () => {};
   const circularTools = require('./circular-tools').createCircularTools({
     db, notificationService, publicOrigin: env.PUBLIC_ORIGIN,
     publishCircular: (circular) => app.locals.publishCircular(circular),

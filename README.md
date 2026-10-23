@@ -46,7 +46,6 @@ Faculty can choose **New faculty? Create an account** in the Faculty portal to r
 
 ## Implemented features
 
-- **Discussions** brings group channels, quoted replies, four emoji reactions, unread counts, message search and faculty-managed pins to both portals. Find it in the desktop sidebar or **More → Discussions** on mobile. Students can access only their current groups; faculty can oversee all non-role groups. Messages refresh every five seconds, with older-message pagination and a separate mark-read action. Authors can remove their messages; faculty can moderate and pin up to five messages per group.
 
 - Inbox discovery combines group, received-date and status filters with newest, oldest or priority sorting. Result counts and one-click reset make active filters clear; selections survive refresh and returning from a circular.
 - Campus search, topic and collection filters stay in the URL for refresh and browser navigation. Publishing from a focused post returns to the full feed so the new post is visible.

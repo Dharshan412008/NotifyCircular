@@ -37,7 +37,6 @@ import { io } from 'socket.io-client';
 import { apiRequest } from '../api.js';
 import CampusFeed from './CampusFeed.jsx';
 import PortalThemeButton from './PortalThemeButton.jsx';
-const Discussions = lazy(() => import('./Discussions.tsx'));
 const EventCheckIn = lazy(() => import('./CircularWorkbench.jsx').then((module) => ({ default: module.EventCheckIn })));
 import PortalNavigation from './PortalNavigation.jsx';
 import EventCalendar from './EventCalendar.jsx';
@@ -886,7 +885,6 @@ export default function StudentPortal({ user, onLogout }) {
         <Route path="materials" element={<StudyMaterials user={user} />} />
         <Route path="groups" element={<StudentCommunities user={user} />} />
         <Route path="campus" element={<CampusFeed user={user} />} />
-          <Route path="discussions" element={<Discussions user={user} />} />
         <Route path="events" element={<EventsView user={user} />} />
         <Route path="overview" element={<Navigate to="/student" replace />} />
         <Route path="saved" element={<SavedCirculars user={user} />} />

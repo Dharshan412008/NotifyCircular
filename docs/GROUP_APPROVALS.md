@@ -22,7 +22,7 @@ Assigned faculty see **Manage** on their groups. They can create an invitation l
 
 Whole College appears first, followed by the student's profile-matched year, department, section and subjects. Clubs, sports and other available groups appear below. **Request to join** records a pending request and does not immediately grant membership.
 
-An invitation link opens `/join/<random-token>`. Sign in with a student account, then request membership. A group manager or administrator must approve it. Only then do membership-based circulars and discussions become available. The student's current profile must match the group's audience when requesting and when approval occurs. Existing memberships and automatic academic communities are preserved.
+An invitation link opens `/join/<random-token>`. Sign in with a student account, then request membership. A group manager or administrator must approve it. Only then do membership-based circulars become available. The student's current profile must match the group's audience when requesting and when approval occurs. Existing memberships and automatic academic communities are preserved.
 
 ## Invitation lifecycle
 
