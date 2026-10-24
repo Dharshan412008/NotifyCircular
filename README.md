@@ -4,11 +4,15 @@ CampusRelay is a multi-user college circular system. Faculty send one circular t
 
 CampusRelay uses React, React Router, TanStack Query, Vite, Express, SQLite, bcrypt sessions, and Socket.IO. It preserves the original phone-shell interface while replacing manual DOM screen toggling with real routes.
 
+**Live app:** [CampusRelay on Railway](https://notifycircular-copy-production.up.railway.app/)
+
+For a guided demonstration, see the [project review walkthrough](docs/PROJECT_REVIEW.md).
+
 Academic communities follow Year → Department → Section. Assigned faculty can create subjects and share downloadable study materials. See [class setup and materials](docs/CLASS_MATERIALS.md) for administrator and staff instructions.
 
 ## Run it
 
-Requires Node.js 20.19 or newer.
+Requires Node.js 20.19 or newer; the production Docker image uses Node.js 22. Set configuration in the server environment using [.env.example](.env.example) as a reference. The project does not automatically load `.env` files.
 
 ```powershell
 npm.cmd install
@@ -36,11 +40,11 @@ Run every automated check with:
 npm.cmd run verify
 ```
 
-This runs the API and React component suites, builds the client, and runs Playwright against a dedicated in-memory server on port 3100. The browser tests never read or modify `data/notify-circular.db`.
+This runs TypeScript checking, the API and React component suites, builds the client, and runs Playwright against a dedicated in-memory server on port 3100. The browser tests never read or modify `data/notify-circular.db`.
 
-## College sign-in
+## Sign-in and account roles
 
-First visits open the login screen. Select Student or Faculty and sign in with your email and CampusRelay password. Gmail and other valid email addresses are accepted. No OTP, email sender, or Google Cloud setup is required in the default `AUTH_MODE=password` mode. New students choose **New student? Create an account**, enter their name, email and academic year, and create a password of at least eight characters. Do not enter your Gmail password.
+First visits open the login screen. Select Student or Faculty and sign in with your email and CampusRelay password. Gmail and other valid email addresses are accepted. No OTP, email sender, or Google Cloud setup is required in the default `AUTH_MODE=password` mode. New students choose **New student? Create an account**, complete the student details listed below, and create a password of at least eight characters. Do not enter your Gmail password.
 
 Faculty can choose **New faculty? Create an account** in the Faculty portal to register with an email and CampusRelay password. Faculty registration in normal password mode grants faculty access immediately. Administrator accounts must still be provisioned. Existing accounts cannot switch roles by selecting another portal. Students can sign in through the Faculty portal to explore a demo workspace with sample circulars, groups, and delivery reports. Demo actions stay in the browser and never send real circulars. Existing account passwords continue to work. Email ownership is not verified in normal password mode. Optional college OTP uses `AUTH_MODE=college`; optional Google sign-in uses `AUTH_MODE=google`.
 
@@ -59,16 +63,18 @@ Faculty can choose **New faculty? Create an account** in the Faculty portal to r
 
 - Campus discovery: search post captions or author names across the entire feed, keep a private **Saved** collection, filter to **My posts**, and edit your own captions without losing reactions.
 - Student notice search by message, group, or faculty, plus **Urgent** and **Needs action** filters and a pending acknowledgment shortcut.
-- Responsive workspace: desktop sidebar navigation and wider content, mobile bottom tabs, a home shortcut in each portal, clearer search fields, and contextual empty states.
+- Responsive workspace: desktop sidebar navigation and wider content, mobile bottom tabs, clearer search fields, and contextual empty states.
 
 - Shared **Campus** feed in both portals: all signed-in students and faculty can publish college updates and achievements, attach one JPEG/PNG/WebP photo (up to 2 MB), like posts, and comment. Authors can delete their own posts. Posts, photos, likes, and comments persist in SQLite. The feed loads newest first, supports loading older posts, and refreshes every 30 seconds or using the refresh button.
 
-- React Router routes for `/`, `/faculty/*`, and `/student/*`, including production history fallback.
+- React Router routes for `/`, `/faculty/*`, `/student/*`, `/admin/*`, and invitation links at `/join/:token`, including production history fallback. Student/faculty Overview, portal Home buttons and Discussions chat are removed; administration retains its Overview dashboard.
 - Email/password sign-in with persisted sessions and server-enforced portal roles; optional college OTP or Google verification.
-- Verified first-time students receive Whole College membership; academic year is assigned by administrators.
-- Optional activity memberships that students can update themselves.
+- New password-mode students choose their year of study and receive Whole College and matching academic memberships. Department, year and section determine their academic community. Administrators can update account years. Email ownership is not verified by password registration.
+- Students can request optional activity memberships and leave optional groups. Managers approve new joins; links and QR codes do not bypass approval.
 - Administrator-approved faculty group requests, assigned faculty managers, and approval-based invitation memberships.
-- Multi-group circular targeting.
+- Multi-group circular targeting with a deduplicated recipient preview. Preview filters help inspect students; delivery uses the full membership of selected groups.
+- Year → Department → Section academic communities. Administrator-assigned faculty can teach multiple matching-department classes, create subjects and upload PDF, DOCX or supported images up to 5 MB. Matching students can view and download materials.
+- Department-filtered staff assignment, administrator-reviewed group requests, clubs and sports groups, multiple staff designations, and approval-based QR/link invitations. Designations are labels rather than independent permission grants.
 - Server-side audience resolution and membership-filtered student inboxes.
 - Socket.IO invalidation so an eligible signed-in student sees a new circular without polling.
 - Authorized text downloads and persisted read status.
@@ -97,7 +103,7 @@ test/                              Backend unit and integration tests
 
 ## Production notes
 
-The demo intentionally uses a single-process SQLite deployment. Before public use, configure HTTPS and SMTP, set a strong `SESSION_SECRET`, add institutional identity verification or SSO, define retention and audit policies, and move notification work to a durable queue.
+The demo intentionally uses a single-process SQLite deployment. Use HTTPS, set a strong `SESSION_SECRET`, preserve the database volume and configure `APP_URL` to the public origin. Production startup requires a session secret of at least 32 characters. Configure SMTP and outbound delivery only when real email notifications are needed; normal password sign-in does not require them. Notification dispatch jobs are persisted in SQLite. Institutional mailbox ownership requires the optional college OTP or Google identity flow.
 
 Analytics now includes reporting periods, unique audience reach, daily activity, category totals and per-circular performance. The application shell, API client, group creation dialog and shared navigation, theme and modal components are checked under strict TypeScript. Production startup requires a 32-character session secret and skips demo seeding on fresh databases.
 
@@ -107,14 +113,22 @@ Faculty submit group proposals and administrators review them before creation. G
 
 ## Registration details
 
-New student accounts require a full name, email, CampusRelay password, register number/student ID, department, year of study, section, and academic session. New faculty accounts require a full name, email, password, employee/faculty ID, department, and designation. Phone contact is optional for both roles. Registration confirms the password and saves the details atomically with the account. Users can view and update their details under Profile & preferences. Existing accounts and profiles are preserved.
+New student accounts require a full name, email, CampusRelay password, register number/student ID, department, year of study, section, and academic session. New faculty accounts require a full name, email, password, employee/faculty ID, department, and designation. Degree/program fields, including the B.Tech/BCA example, have been removed from registration, profile settings and audience selection. Existing stored profile values are preserved. Phone contact is optional for both roles. Registration confirms the password and saves the details atomically with the account. Users can view and update their details under Profile & preferences. Existing accounts and profiles are preserved.
 
-## Application updates
+## Application updates and Railway
 
-Every production build includes a unique release ID. Open apps check `/api/version` once a minute while visible, and on reconnect or returning to the tab. A new release opens an **Update available** screen with **Update**, **What’s new**, and **Later**. Updating shows an indeterminate loading screen while checking the server, then reloads the app. Offline failures offer a retry, so unfinished work is not discarded automatically. Installed apps fetch the current page when reopened online. Users on versions older than this update must refresh or reopen once to receive the update prompt feature.
+Pushes to the connected GitHub branch trigger Railway deployment when autodeploy is enabled. Confirm both the deployment status and the public app before announcing a release. The running build is available at `/api/version`; service health is available at `/api/health`.
 
-Railway updates should use the existing service and its persistent volume at `/app/data`; do not replace the service or delete its volume. Push to the connected GitHub branch to trigger deployment when autodeploy is enabled. Confirm the new deployment succeeds before announcing availability to users. GitHub source updates alone do not confirm a live release.
+Refresh or reopen an already open browser or installed web app to load the latest version online. The **Update available** and **Updating** screens and automatic release announcement notifications have been removed. Updating the website does not publish or update a Play Store APK. Installation and browser push depend on browser/device support; reading fresh inbox data requires a connection.
 
-### Existing-user update announcement
+Use the existing Railway service and preserve its persistent volume at `/app/data`. Do not replace the service or delete its volume when deploying code changes. Configure `DB_PATH=/app/data/notify-circular.db`, the public `APP_URL`, a strong session secret, and trusted reverse-proxy settings as appropriate for the deployment. Never commit secrets or database files.
 
-The registration/profile release creates one persistent in-app update notification for each existing enabled account when the production build starts. It queues browser push for existing eligible subscriptions (respecting the current notification preference), with up to three attempts and no email blast. Duplicate restarts do not repeat the announcement. Disabled accounts, expired subscriptions and reassigned devices are excluded. Devices without push permission receive the notice inside CampusRelay when opened. Browser push delivery is subject to browser and OS support; it cannot silently replace a Play Store APK. A website-installed app loads the latest version when reopened or updated.
+Local and Railway accounts belong to separate databases. A local `127.0.0.1` invitation cannot be opened on another device to reach your laptop; share invitations from the public app instead.
+
+## Documentation
+
+- [Project review walkthrough](docs/PROJECT_REVIEW.md)
+- [Academic classes, staff assignments and materials](docs/CLASS_MATERIALS.md)
+- [Group approvals, designations and invitations](docs/GROUP_APPROVALS.md)
+- [Optional Google sign-in setup](docs/GOOGLE_SIGN_IN.md)
+- [Server environment reference](.env.example)
