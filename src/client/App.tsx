@@ -4,24 +4,13 @@ import type { ThemeMode } from './components/PortalThemeButton';
 import RouteBoundary, { RouteLoading } from './components/RouteBoundary';
 import { DisplayProvider } from './components/DisplayPreferences';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowRight,
-  CheckCircle2,
-  Download,
-  FilePenLine,
-  Inbox,
-  LockKeyhole,
-  Moon,
-  Radio,
-  Sun,
-} from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 
 import { apiRequest, AUTH_EXPIRED_EVENT } from './api.js';
 import AuthScreen from './components/AuthScreen.jsx';
 const InvitationJoin = lazy(() => import('./components/CommunityTools.jsx').then(m => ({ default: m.InvitationJoin })));
 const FacultyPortal = lazy(() => import('./components/FacultyPortal.jsx'));
-const FacultyDemo = lazy(() => import('./components/FacultyDemo.jsx'));
 const StudentPortal = lazy(() => import('./components/StudentPortal.jsx'));
 const AdminPortal = lazy(() => import('./components/AdminPortal.jsx'));
 import { ThemeContext } from './components/PortalThemeButton.jsx';
@@ -82,85 +71,6 @@ function Brand({ compact = false }) {
 }
 
 interface InstallPrompt extends Event { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> }
-interface StartProps { user: SessionUser | null; theme: 'light' | 'dark'; onToggleTheme: () => void; installAvailable: boolean; onInstall: () => void }
-function StartScreen({ user, theme, onToggleTheme, installAvailable, onInstall }: StartProps) {
-  const navigate = useNavigate();
-
-  return (
-    <section className="screen screen-active landing-screen" aria-labelledby="landing-title">
-      <header className="landing-top">
-        <Brand />
-        <div className="landing-actions">
-          {installAvailable && (
-            <button
-              className="icon-button"
-              type="button"
-              aria-label="Install CampusRelay"
-              title="Install CampusRelay"
-              onClick={onInstall}
-            >
-              <Download aria-hidden="true" />
-            </button>
-          )}
-          <button
-            className="icon-button"
-            type="button"
-            role="switch"
-            aria-checked={theme === 'dark'}
-            aria-label="Dark theme"
-            title={`Use ${theme === 'dark' ? 'light' : 'dark'} theme`}
-            onClick={onToggleTheme}
-          >
-            {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
-          </button>
-          {user && (
-            <button
-              className="avatar-button"
-              type="button"
-              aria-label={`Open ${user.role} portal`}
-              onClick={() => navigate(`/${user.role}`)}
-            >
-              <span className="avatar">{initials(user.name)}</span>
-              <span className="online-dot" />
-            </button>
-          )}
-        </div>
-      </header>
-
-      <div className="hero">
-        <div className="eyebrow"><span className="live-dot" /> Official campus communication</div>
-        <h1 id="landing-title">The right notice.<br /><span>The right people.</span></h1>
-        <p>Compose official circulars and route each one through verified group membership.</p>
-        <div className="hero-proof" aria-label="System status">
-          <span><LockKeyhole /> Session protected</span>
-          <span><CheckCircle2 /> Membership enforced</span>
-        </div>
-      </div>
-
-      <div className="role-stack" aria-label="Choose a portal">
-        <button className="role-card faculty-role" type="button" onClick={() => navigate('/faculty')}>
-          <span className="role-icon"><FilePenLine /></span>
-          <span className="role-copy"><strong>Faculty portal</strong><small>Compose and route circulars</small></span>
-          <ArrowRight className="chevron" />
-        </button>
-        <button className="role-card" type="button" onClick={() => navigate('/student')}>
-          <span className="role-icon"><Inbox /></span>
-          <span className="role-copy"><strong>Student portal</strong><small>Open your assigned inbox</small></span>
-          <ArrowRight className="chevron" />
-        </button>
-      </div>
-
-      <div className="landing-metrics" aria-label="System guarantees">
-        <div><strong>Stay informed</strong><span>Your college notices</span></div>
-        <div><strong>Connect</strong><span>Campus stories</span></div>
-        <div><strong>Save</strong><span>Keep useful posts</span></div>
-      </div>
-      <button className="inline-button admin-entry" onClick={() => navigate('/admin')}>College administration <ArrowRight /></button>
-      <p className="landing-footer">Official notices, connected campus.</p>
-    </section>
-  );
-}
-
 function LoadingScreen() {
   return (
     <section className="screen screen-active route-loading" aria-live="polite">
@@ -274,7 +184,6 @@ export default function App() {
       );
     }
     if (!user) return <AuthScreen role={role} onAuthenticated={handleAuthenticated} />;
-    if (role === 'faculty' && user.role === 'student') return <FacultyDemo user={user} onLogout={handleLogout} />;
     if (user.role !== role) return <Navigate to={`/${user.role}`} replace />;
     if (role === 'faculty') return <FacultyPortal user={user} onLogout={handleLogout} />;
     if (role === 'admin') return <AdminPortal user={user} onLogout={handleLogout} />;
@@ -287,15 +196,7 @@ export default function App() {
       <RouteBoundary><Suspense fallback={<RouteLoading />}><Routes>
         <Route
           path="/"
-          element={session.isPending ? <LoadingScreen /> : !user ? (session.isError ? portal('student') : <AuthScreen role="student" onAuthenticated={handleAuthenticated} installAvailable={Boolean(installPrompt)} onInstall={handleInstall} />) : (
-            <StartScreen
-              user={user}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              installAvailable={Boolean(installPrompt)}
-              onInstall={handleInstall}
-            />
-          )}
+          element={session.isPending ? <LoadingScreen /> : !user ? (session.isError ? portal('student') : <AuthScreen role="student" onAuthenticated={handleAuthenticated} installAvailable={Boolean(installPrompt)} onInstall={handleInstall} />) : <Navigate to={`/${user.role}`} replace />}
         />
         <Route path="/join/:token" element={session.isPending ? <LoadingScreen /> : user ? <InvitationJoin user={user} /> : <AuthScreen role="student" onAuthenticated={handleAuthenticated} />} />
         <Route path="/faculty/*" element={portal('faculty')} />

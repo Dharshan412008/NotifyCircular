@@ -74,22 +74,12 @@ test('first visit shows college Google login without trial accounts or a passwor
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('student login opens a faculty demo without granting faculty permissions', async ({ page }) => {
+test('student sign-in through a faculty link returns to the student portal', async ({ page }) => {
   await page.goto('/faculty');
   await signIn(page, 'student');
-  await expect(page.getByRole('heading', { name: 'Faculty demo', exact: true })).toBeVisible();
-  expect((await (await page.request.get('/api/auth/me')).json()).user.role).toBe('student');
-  expect((await page.request.post('/api/circulars', { data: {} })).status()).toBe(403);
-  await page.getByLabel('Circular title').fill('My demo notice');
-  await page.getByLabel('Message', { exact: true }).fill('Try the faculty compose workflow.');
-  await page.getByRole('button', { name: 'Send demo circular' }).click();
-  await expect(page.getByRole('status')).toContainText('No real recipients');
-  await expect(page.getByRole('heading', { name: 'My demo notice' })).toBeVisible();
-  await page.reload();
-  await page.getByRole('button', { name: 'Sent', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'My demo notice' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Back to Student portal' }).click();
+  await expect(page).toHaveURL(/\/student$/);
   await expect(page.getByRole('heading', { name: 'Your circulars', exact: true })).toBeVisible();
+  expect((await page.request.post('/api/circulars', { data: {} })).status()).toBe(403);
 });
 
 test('duplicate faculty registration guides an existing student to sign in', async ({ page }) => {
@@ -102,5 +92,5 @@ test('duplicate faculty registration guides an existing student to sign in', asy
   await page.getByRole('button', { name: 'Create faculty account' }).click();
   await expect(page.getByRole('alert')).toContainText('existing CampusRelay password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
-  await expect(page.getByRole('heading', { name: 'Faculty demo', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your circulars', exact: true })).toBeVisible();
 });

@@ -37,7 +37,7 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
     } catch (failure) {
       if (failure.code === 'email_in_use') {
         setRegistering(false);
-        setError('An account already exists for this email. Sign in with its existing CampusRelay password. Student accounts can preview the faculty demo.');
+        setError('An account already exists for this email. Sign in with its existing CampusRelay password. After sign-in, your account opens its assigned portal.');
       } else setError(failure.message || 'Sign-in failed.');
     } finally { setBusy(false); }
   }
@@ -99,7 +99,7 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
         </form>}
         {notice && <p role="status">{notice}</p>}
         {settings.data.localAuth && !verification && <form className="form-stack local-login-form" onSubmit={signIn}>
-          {role === 'faculty' && settings.data.collegePasswordAuth === false && <p className="collection-note">Already have a student account? Sign in below to explore a faculty demo with sample data.</p>}
+          {role === 'faculty' && settings.data.collegePasswordAuth === false && <p className="collection-note">Already have an account? Sign in with its existing password. Your account opens its assigned portal.</p>}
           <p className="collection-note">{settings.data.collegePasswordAuth ? 'Use your college email and CampusRelay password.' : 'Use your Gmail or another email address and a password created for CampusRelay.'}</p>
           {registering && canRegister && <><label className="field"><span>Full name</span><input required minLength={2} maxLength={100} autoComplete="name" value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /></label>{role === 'student' && <label className="field"><span>Year of study</span><select value={year} disabled={busy} onChange={(event) => setYear(event.target.value)}>{[1, 2, 3, 4].map((value) => <option key={value} value={value}>Year {value}</option>)}</select></label>}</>}
           {registering && canRegister && <>
