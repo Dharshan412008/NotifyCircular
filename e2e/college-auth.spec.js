@@ -74,12 +74,14 @@ test('first visit shows college Google login without trial accounts or a passwor
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('student sign-in through a faculty link returns to the student portal', async ({ page }) => {
+test('faculty sign-in rejects a student account and accepts it only in Student', async ({ page }) => {
   await page.goto('/faculty');
   await signIn(page, 'student');
-  await expect(page).toHaveURL(/\/student$/);
+  await expect(page.getByRole('alert')).toContainText('not assigned to the selected portal');
+  expect((await (await page.request.get('/api/auth/me')).json()).user).toBeNull();
+  await page.getByRole('button', { name: 'Student portal', exact: true }).click();
+  await signIn(page, 'student');
   await expect(page.getByRole('heading', { name: 'Your circulars', exact: true })).toBeVisible();
-  expect((await page.request.post('/api/circulars', { data: {} })).status()).toBe(403);
 });
 
 test('duplicate faculty registration guides an existing student to sign in', async ({ page }) => {
@@ -92,5 +94,5 @@ test('duplicate faculty registration guides an existing student to sign in', asy
   await page.getByRole('button', { name: 'Create faculty account' }).click();
   await expect(page.getByRole('alert')).toContainText('existing CampusRelay password');
   await page.getByRole('button', { name: 'Sign in securely' }).click();
-  await expect(page.getByRole('heading', { name: 'Your circulars', exact: true })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('not assigned to the selected portal');
 });

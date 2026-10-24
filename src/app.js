@@ -285,8 +285,7 @@ function createApplication(options = {}) {
       if (!valid) {
         throw new ApiError(401, 'invalid_credentials', 'Email or password is incorrect.');
       }
-      const facultyDemo = !authSettings.collegePasswordAuth && body.allowFacultyDemo === true && body.role === 'faculty' && row.role === 'student';
-      assert(!body.role || body.role === row.role || facultyDemo, 403, 'wrong_portal', 'This account is not assigned to the selected portal. Choose the correct portal or contact your college.');
+      assert(!body.role || body.role === row.role, 403, 'wrong_portal', 'This account is not assigned to the selected portal. Choose the correct portal or contact your college.');
       if (authSettings.collegePasswordAuth && !emailVerification.verified(row.id)) return res.json(await emailVerification.begin(req, row));
       await regenerateSession(req);
       req.session.userId = Number(row.id);

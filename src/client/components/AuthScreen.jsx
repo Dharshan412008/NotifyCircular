@@ -29,15 +29,15 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
     try {
       if (settings.data?.collegePasswordAuth === true && !/^[^\s@]+@srishakthi\.ac\.in$/i.test(email.trim())) throw new Error('Use an email address ending in @srishakthi.ac.in.');
       if (registering && password !== confirmation) throw new Error('Passwords do not match.');
-      const result = await apiRequest(registering && canRegister ? '/api/auth/register' : '/api/auth/login', { method: 'POST', body: registering && canRegister ? { email: email.trim(), password, name, role, profile, ...(role === 'student' ? { year: Number(year) } : {}) } : { email: email.trim(), password, role, allowFacultyDemo: role === 'faculty' && settings.data?.collegePasswordAuth === false } });
+      const result = await apiRequest(registering && canRegister ? '/api/auth/register' : '/api/auth/login', { method: 'POST', body: registering && canRegister ? { email: email.trim(), password, name, role, profile, ...(role === 'student' ? { year: Number(year) } : {}) } : { email: email.trim(), password, role } });
       if (result.verificationRequired) { setVerification(result); setPassword(''); setCode(''); return; }
-      if (result.user?.role !== role && !(role === 'faculty' && result.user?.role === 'student' && settings.data.collegePasswordAuth === false)) throw new Error('This account is not assigned to the selected portal.');
+      if (result.user?.role !== role) throw new Error('This account is not assigned to the selected portal.');
       await onAuthenticated?.(result.user);
       if (location.pathname === '/') navigate('/' + role, { replace: true });
     } catch (failure) {
       if (failure.code === 'email_in_use') {
         setRegistering(false);
-        setError('An account already exists for this email. Sign in with its existing CampusRelay password. After sign-in, your account opens its assigned portal.');
+        setError('An account already exists for this email. Sign in with its existing CampusRelay password. Choose the portal assigned to your account.');
       } else setError(failure.message || 'Sign-in failed.');
     } finally { setBusy(false); }
   }
@@ -99,7 +99,7 @@ export default function AuthScreen({ role = 'student', onAuthenticated, installA
         </form>}
         {notice && <p role="status">{notice}</p>}
         {settings.data.localAuth && !verification && <form className="form-stack local-login-form" onSubmit={signIn}>
-          {role === 'faculty' && settings.data.collegePasswordAuth === false && <p className="collection-note">Already have an account? Sign in with its existing password. Your account opens its assigned portal.</p>}
+          {role === 'faculty' && settings.data.collegePasswordAuth === false && <p className="collection-note">Already have an account? Sign in with its existing password. Use the portal assigned to your account.</p>}
           <p className="collection-note">{settings.data.collegePasswordAuth ? 'Use your college email and CampusRelay password.' : 'Use your Gmail or another email address and a password created for CampusRelay.'}</p>
           {registering && canRegister && <><label className="field"><span>Full name</span><input required minLength={2} maxLength={100} autoComplete="name" value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /></label>{role === 'student' && <label className="field"><span>Year of study</span><select value={year} disabled={busy} onChange={(event) => setYear(event.target.value)}>{[1, 2, 3, 4].map((value) => <option key={value} value={value}>Year {value}</option>)}</select></label>}</>}
           {registering && canRegister && <>

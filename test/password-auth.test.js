@@ -4,18 +4,19 @@ const { it } = require('node:test');
 const request = require('supertest');
 const { createApplication } = require('../src/app');
 
-it('permits explicit faculty demo login while preserving student permissions', async () => {
+it('rejects every wrong portal, including the old demo flag, without creating a session', async () => {
   const context = createApplication({ dbPath: ':memory:', envName: 'test', env: { AUTH_MODE: 'password' }, bcryptRounds: 4, disableOutboundNotifications: true });
   try {
-    const agent = request.agent(context.app);
-    const credentials = { email: 'asha@demo.edu', password: 'Student123!', role: 'faculty', allowFacultyDemo: true };
-    await agent.post('/api/auth/login').send({ ...credentials, password: 'wrong' }).expect(401);
-    const response = await agent.post('/api/auth/login').send(credentials).expect(200);
-    assert.equal(response.body.user.role, 'student');
-    assert.equal((await agent.get('/api/auth/me')).body.user.role, 'student');
-    await agent.post('/api/circulars').send({}).expect(403);
-    await agent.get('/api/admin/stats').expect(403);
-    await agent.post('/api/auth/login').send({ ...credentials, role: 'admin' }).expect(403);
+    for (const [email,password,assigned] of [['asha@demo.edu','Student123!','student'],['faculty@demo.edu','Faculty123!','faculty'],['admin@demo.edu','Admin123!','admin']]) {
+      const agent = request.agent(context.app);
+      for (const role of ['student','faculty','admin'].filter(r => r !== assigned)) {
+        const rejected = await agent.post('/api/auth/login').send({email,password,role,allowFacultyDemo:true}).expect(403);
+        assert.equal(rejected.body.error.code,'wrong_portal');
+        assert.equal((await agent.get('/api/auth/me')).body.user,null);
+      }
+      await agent.post('/api/auth/login').send({email,password,role:assigned}).expect(200);
+      assert.equal((await agent.get('/api/auth/me')).body.user.role,assigned);
+    }
   } finally { context.close(); }
 });
 
