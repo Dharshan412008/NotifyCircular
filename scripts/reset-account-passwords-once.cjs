@@ -13,10 +13,11 @@ async function resetAccounts(filename, payload, operation) {
   const db = new Database(filename, {fileMustExist:true});
   db.pragma('foreign_keys=ON'); db.pragma('busy_timeout=10000');
   try {
-    const rows = Object.entries(expected).map(([email,role]) => {
+    const unavailable = [];
+    const rows = Object.entries(expected).flatMap(([email,role]) => {
       const row = db.prepare('SELECT id,email,role,disabled FROM users WHERE email=?').get(email);
-      if (!row || row.role !== role || row.disabled) throw new Error('Recovery needs an active ' + role + ' account for ' + email);
-      return row;
+      if (!row || row.role !== role || row.disabled) { unavailable.push({email,expectedRole:role,reason:!row?'not_found':row.disabled?'disabled':'different_role',actualRole:row?.role || null}); return []; }
+      return [row];
     });
     const folder=path.join(path.dirname(filename),'backups'); fs.mkdirSync(folder,{recursive:true});
     const backup=path.join(folder,'before-password-reset-'+Date.now()+'.db'); await db.backup(backup);
@@ -29,7 +30,7 @@ async function resetAccounts(filename, payload, operation) {
       }
       if(db.pragma('foreign_key_check').length) throw new Error('Foreign key check failed.');
     })();
-    const result={reset:rows.map(({email,role})=>({email,role})),backup};
+    const result={reset:rows.map(({email,role})=>({email,role})),unavailable,backup};
     fs.writeFileSync(marker,JSON.stringify(result),{mode:0o600});return result;
   } finally {db.close();}
 }
